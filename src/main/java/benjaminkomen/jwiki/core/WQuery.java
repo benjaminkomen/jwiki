@@ -293,13 +293,17 @@ class WQuery {
             }
 
             result = GSONP.jp.parse(wiki.apiclient.basicGET(parameterList).body().string()).getAsJsonObject();
-            if (result.has("continue"))
+            if (result.has("continue")) {
                 parameterList.putAll(GSONP.gson.fromJson(result.getAsJsonObject("continue"), strMapT));
-            else
+            } else if (result.has("query-continue")) {
+                parameterList.putAll(GSONP.gson.fromJson(result.getAsJsonObject("query-continue").getAsJsonObject("categorymembers"), strMapT));
+            } else {
                 canCont = false;
+            }
 
-            if (wiki.conf.debug)
+            if (wiki.conf.debug) {
                 wiki.conf.log.debug(wiki, GSONP.gsonPP.toJson(result));
+            }
 
             return new QReply(result);
         } catch (Exception e) {
