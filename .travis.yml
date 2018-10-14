@@ -6,4 +6,15 @@ jdk:
 
 notifications:
   email: false
-  
+
+addons:
+  sonarcloud:
+    organization: "benjaminkomen-github"
+
+cache:
+  directories:
+    - '$HOME/.m2/repository'
+    - '$HOME/.sonar/cache'
+
+script:
+  - ./gradlew check sonar:sonar
