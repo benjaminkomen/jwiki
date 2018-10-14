@@ -5,6 +5,9 @@ import benjaminkomen.jwiki.util.GSONP;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -18,7 +21,16 @@ import java.util.Map;
  *
  * @author Fastily
  */
+@Getter
 class WQuery {
+
+    private static final Logger LOG = LoggerFactory.getLogger(WQuery.class);
+    private static final String VAR_CATEGORY_MEMBERS = "categorymembers";
+    private static final String VAR_QUERY = "query";
+    private static final String VAR_REVISIONS = "revisions";
+    private static final String VAR_TITLE = "title";
+    private static final String VAR_TITLES = "titles";
+
     /**
      * Default parameters for getting category size info
      */
@@ -33,13 +45,13 @@ class WQuery {
     /**
      * Default parameters for getting category size info
      */
-    public static final QTemplate CATEGORYINFO = new QTemplate(FL.produceMap("prop", "categoryinfo", "titles", null), "categoryinfo");
+    public static final QTemplate CATEGORYINFO = new QTemplate(FL.produceMap("prop", "categoryinfo", VAR_TITLES, null), "categoryinfo");
 
     /**
      * Default parameters for listing category members
      */
-    public static final QTemplate CATEGORYMEMBERS = new QTemplate(FL.produceMap("list", "categorymembers", "cmtitle", null), "cmlimit",
-            "categorymembers");
+    public static final QTemplate CATEGORYMEMBERS = new QTemplate(FL.produceMap("list", VAR_CATEGORY_MEMBERS, "cmtitle", null), "cmlimit",
+            VAR_CATEGORY_MEMBERS);
 
     /**
      * Default parameters for getting Namespace information on a Wiki.
@@ -50,52 +62,52 @@ class WQuery {
     /**
      * Default parameters for getting duplicate files
      */
-    public static final QTemplate DUPLICATEFILES = new QTemplate(FL.produceMap("prop", "duplicatefiles", "titles", null), "dflimit",
+    public static final QTemplate DUPLICATEFILES = new QTemplate(FL.produceMap("prop", "duplicatefiles", VAR_TITLES, null), "dflimit",
             "duplicatefiles");
 
     /**
      * Default parameters for determining if a page exists.
      */
-    public static final QTemplate EXISTS = new QTemplate(FL.produceMap("prop", "pageprops", "ppprop", "missing", "titles", null), null);
+    public static final QTemplate EXISTS = new QTemplate(FL.produceMap("prop", "pageprops", "ppprop", "missing", VAR_TITLES, null), null);
 
     /**
      * Default parameters for fetching external links on a page
      */
-    public static final QTemplate EXTLINKS = new QTemplate(FL.produceMap("prop", "extlinks", "elexpandurl", "1", "titles", null), "ellimit",
+    public static final QTemplate EXTLINKS = new QTemplate(FL.produceMap("prop", "extlinks", "elexpandurl", "1", VAR_TITLES, null), "ellimit",
             "extlinks");
 
     /**
      * Default parameters for getting file usage
      */
-    public static final QTemplate FILEUSAGE = new QTemplate(FL.produceMap("prop", "fileusage", "titles", null), "fulimit", "fileusage");
+    public static final QTemplate FILEUSAGE = new QTemplate(FL.produceMap("prop", "fileusage", VAR_TITLES, null), "fulimit", "fileusage");
 
     /**
      * Default parameters for getting global usage of a file
      */
-    public static final QTemplate GLOBALUSAGE = new QTemplate(FL.produceMap("prop", "globalusage", "titles", null), "gulimit", "globalusage");
+    public static final QTemplate GLOBALUSAGE = new QTemplate(FL.produceMap("prop", "globalusage", VAR_TITLES, null), "gulimit", "globalusage");
 
     /**
      * Default parameters for getting files on a page
      */
-    public static final QTemplate IMAGES = new QTemplate(FL.produceMap("prop", "images", "titles", null), "imlimit", "images");
+    public static final QTemplate IMAGES = new QTemplate(FL.produceMap("prop", "images", VAR_TITLES, null), "imlimit", "images");
 
     /**
      * Default parameters for getting image info of a file.
      */
     public static final QTemplate IMAGEINFO = new QTemplate(
-            FL.produceMap("prop", "imageinfo", "iiprop", "canonicaltitle|url|size|sha1|mime|user|timestamp|comment", "titles", null), "iilimit",
+            FL.produceMap("prop", "imageinfo", "iiprop", "canonicaltitle|url|size|sha1|mime|user|timestamp|comment", VAR_TITLES, null), "iilimit",
             "imageinfo");
 
     /**
      * Default parameters for getting links to a page
      */
     public static final QTemplate LINKSHERE = new QTemplate(
-            FL.produceMap("prop", "linkshere", "lhprop", "title", "lhshow", null, "titles", null), "lhlimit", "linkshere");
+            FL.produceMap("prop", "linkshere", "lhprop", VAR_TITLE, "lhshow", null, VAR_TITLES, null), "lhlimit", "linkshere");
 
     /**
      * Default parameters for getting links on a page
      */
-    public static final QTemplate LINKSONPAGE = new QTemplate(FL.produceMap("prop", "links", "titles", null), "pllimit", "links");
+    public static final QTemplate LINKSONPAGE = new QTemplate(FL.produceMap("prop", "links", VAR_TITLES, null), "pllimit", "links");
 
     /**
      * Default parameters for listing logs.
@@ -105,13 +117,13 @@ class WQuery {
     /**
      * Default parameters for getting page categories.
      */
-    public static final QTemplate PAGECATEGORIES = new QTemplate(FL.produceMap("prop", "categories", "titles", null), "cllimit",
+    public static final QTemplate PAGECATEGORIES = new QTemplate(FL.produceMap("prop", "categories", VAR_TITLES, null), "cllimit",
             "categories");
 
     /**
      * Default parameters for getting page text.
      */
-    public static final QTemplate PAGETEXT = new QTemplate(FL.produceMap("prop", "revisions", "rvprop", "content", "titles", null), null);
+    public static final QTemplate PAGETEXT = new QTemplate(FL.produceMap("prop", VAR_REVISIONS, "rvprop", "content", VAR_TITLES, null), null);
 
     /**
      * Default parameters for listing protected titles.
@@ -140,25 +152,25 @@ class WQuery {
     /**
      * Default parameters for resolving redirects
      */
-    public static final QTemplate RESOLVEREDIRECT = new QTemplate(FL.produceMap("redirects", "", "titles", null), "redirects");
+    public static final QTemplate RESOLVEREDIRECT = new QTemplate(FL.produceMap("redirects", "", VAR_TITLES, null), "redirects");
 
     /**
      * Default parameters for listing page revisions
      */
     public static final QTemplate REVISIONS = new QTemplate(
-            FL.produceMap("prop", "revisions", "rvprop", "timestamp|user|comment|content", "titles", null), "rvlimit", "revisions");
+            FL.produceMap("prop", VAR_REVISIONS, "rvprop", "timestamp|user|comment|content", VAR_TITLES, null), "rvlimit", VAR_REVISIONS);
 
     /**
      * Default parameters for getting templates on a page
      */
-    public static final QTemplate TEMPLATES = new QTemplate(FL.produceMap("prop", "templates", "tiprop", "title", "titles", null), "tllimit",
+    public static final QTemplate TEMPLATES = new QTemplate(FL.produceMap("prop", "templates", "tiprop", VAR_TITLE, VAR_TITLES, null), "tllimit",
             "templates");
 
     /**
      * Default parameters for getting text extracts from a page
      */
     public static final QTemplate TEXTEXTRACTS = new QTemplate(
-            FL.produceMap("prop", "extracts", "exintro", "1", "explaintext", "1", "titles", null), "exlimit", "extract");
+            FL.produceMap("prop", "extracts", "exintro", "1", "explaintext", "1", VAR_TITLES, null), "exlimit", "extract");
 
     /**
      * Default parameters for getting a csrf token.
@@ -173,7 +185,7 @@ class WQuery {
     /**
      * Default parameters for getting a page's transclusions.
      */
-    public static final QTemplate TRANSCLUDEDIN = new QTemplate(FL.produceMap("prop", "transcludedin", "tiprop", "title", "titles", null),
+    public static final QTemplate TRANSCLUDEDIN = new QTemplate(FL.produceMap("prop", "transcludedin", "tiprop", VAR_TITLE, VAR_TITLES, null),
             "tilimit", "transcludedin");
 
     /**
@@ -207,7 +219,7 @@ class WQuery {
     /**
      * The master parameter list. Tracks current query status.
      */
-    private final Map<String, String> parameterList = FL.produceMap("action", "query", "format", "json");
+    private final Map<String, String> parameterList = FL.produceMap("action", VAR_QUERY, "format", "json");
 
     /**
      * The List of limit Strings.
@@ -222,7 +234,7 @@ class WQuery {
     /**
      * Flag indicating if this query can be continued.
      */
-    private boolean canCont = true;
+    private boolean canContinue = true;
 
     /**
      * Tracks and limits entries returned, if applicable.
@@ -239,7 +251,7 @@ class WQuery {
      */
     public WQuery(Wiki wiki, QTemplate... qut) {
         this.wiki = wiki;
-        this.queryLimit = wiki.conf.maxResultLimit;
+        this.queryLimit = wiki.getWikiConfiguration().getMaxResultLimit();
 
         for (QTemplate qt : qut) {
             parameterList.putAll(qt.defaultFields);
@@ -268,7 +280,7 @@ class WQuery {
      * @return True if this WQuery can still be used to make continuation queries.
      */
     public boolean has() {
-        return canCont;
+        return canContinue;
     }
 
     /**
@@ -280,34 +292,35 @@ class WQuery {
         // sanity check
         if (parameterList.containsValue(null)) {
             throw new IllegalStateException(String.format("Fill in *all* the null fields -> %s", parameterList));
-        } else if (!canCont) {
+        } else if (!canContinue) {
             return null;
         }
 
         JsonObject result;
 
         try {
-            if (totalLimit > 0 && (currCount += queryLimit) > totalLimit) {
+            final int increasedCount = currCount += queryLimit;
+            if (totalLimit > 0 && increasedCount > totalLimit) {
                 adjustLimit(queryLimit - (currCount - totalLimit));
-                canCont = false;
+                canContinue = false;
             }
 
-            result = GSONP.jp.parse(wiki.apiclient.basicGET(parameterList).body().string()).getAsJsonObject();
+            result = GSONP.getJsonParser().parse(wiki.getApiclient().basicGET(parameterList).body().string()).getAsJsonObject();
             if (result.has("continue")) {
-                parameterList.putAll(GSONP.gson.fromJson(result.getAsJsonObject("continue"), strMapT));
+                parameterList.putAll(GSONP.getGson().fromJson(result.getAsJsonObject("continue"), strMapT));
             } else if (result.has("query-continue")) {
-                parameterList.putAll(GSONP.gson.fromJson(result.getAsJsonObject("query-continue").getAsJsonObject("categorymembers"), strMapT));
+                parameterList.putAll(GSONP.getGson().fromJson(result.getAsJsonObject("query-continue").getAsJsonObject(VAR_CATEGORY_MEMBERS), strMapT));
             } else {
-                canCont = false;
+                canContinue = false;
             }
 
-            if (wiki.conf.debug) {
-                wiki.conf.log.debug(wiki, GSONP.gsonPP.toJson(result));
+            if (wiki.getWikiConfiguration().isDebug()) {
+                wiki.getWikiConfiguration().getLog().debug(wiki, GSONP.getGsonPrettyPrint().toJson(result));
             }
 
             return new QReply(result);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Error during performing next query", e);
             return null;
         }
     }
@@ -344,9 +357,9 @@ class WQuery {
      */
     public WQuery adjustLimit(int limit) {
         String limitString;
-        if (limit <= 0 || limit > wiki.conf.maxResultLimit) {
+        if (limit <= 0 || limit > wiki.getWikiConfiguration().getMaxResultLimit()) {
             limitString = "max";
-            queryLimit = wiki.conf.maxResultLimit;
+            queryLimit = wiki.getWikiConfiguration().getMaxResultLimit();
         } else {
             limitString = "" + limit;
             queryLimit = limit;
@@ -364,6 +377,7 @@ class WQuery {
      *
      * @author Fastily
      */
+    @Getter
     protected static class QTemplate {
         /**
          * The default fields for this query type
@@ -378,7 +392,7 @@ class WQuery {
         /**
          * An id which can be used to lookup a query result (in JSON) for a query created from this Object.
          */
-        protected final String id;
+        private final String id;
 
         /**
          * Constructor, creates a new QueryUnitTemplate
@@ -413,11 +427,12 @@ class WQuery {
      *
      * @author Fastily
      */
+    @Getter
     protected static class QReply {
         /**
          * Default path to json for {@code prop} queries.
          */
-        protected static final List<String> defaultPropPTJ = FL.toStringArrayList("query", "pages");
+        private static final List<String> defaultPropPTJ = FL.toStringArrayList(VAR_QUERY, "pages");
 
         /**
          * Tracks {@code normalized} titles. The key is the {@code from} (non-normalized) title and the value is the
@@ -428,7 +443,7 @@ class WQuery {
         /**
          * The JsonObject which was passed as input
          */
-        protected final JsonObject input;
+        private final JsonObject input;
 
         /**
          * Creates a new QReply. Will parse the {@code normalized} JsonArray if it is found in {@code input}.
@@ -438,8 +453,8 @@ class WQuery {
         private QReply(JsonObject input) {
             this.input = input;
 
-            if (GSONP.nestedHas(input, FL.toStringArrayList("query", "normalized"))) {
-                normalized = GSONP.pairOff(GSONP.getJAofJO(GSONP.getNestedJsonArray(input, FL.toStringArrayList("query", "normalized"))), "from", "to");
+            if (GSONP.nestedHas(input, FL.toStringArrayList(VAR_QUERY, "normalized"))) {
+                normalized = GSONP.pairOff(GSONP.getJsonArrayofJsonObject(GSONP.getNestedJsonArray(input, FL.toStringArrayList(VAR_QUERY, "normalized"))), "from", "to");
             }
         }
 
@@ -450,8 +465,8 @@ class WQuery {
          * @return A lightly processed List of {@code list} data.
          */
         protected List<JsonObject> listComp(String k) {
-            return input.has("query")
-                    ? GSONP.getJAofJO(input.getAsJsonObject("query"), k)
+            return input.has(VAR_QUERY)
+                    ? GSONP.getJsonArrayofJsonObject(input.getAsJsonObject(VAR_QUERY), k)
                     : Collections.emptyList();
         }
 
@@ -472,7 +487,7 @@ class WQuery {
             }
 
             for (JsonObject jo : GSONP.convertJsonObjectToList(x)) {
-                m.put(GSONP.getStr(jo, kk), jo.get(vk));
+                m.put(GSONP.getString(jo, kk), jo.get(vk));
             }
 
             return normalize(m);
@@ -485,8 +500,8 @@ class WQuery {
          * @return The JsonElement pointed to by {@code key} or null/empty JsonObject on error.
          */
         protected JsonElement metaComp(String key) {
-            return input.has("query")
-                    ? input.getAsJsonObject("query").get(key)
+            return input.has(VAR_QUERY)
+                    ? input.getAsJsonObject(VAR_QUERY).get(key)
                     : new JsonObject();
         }
 

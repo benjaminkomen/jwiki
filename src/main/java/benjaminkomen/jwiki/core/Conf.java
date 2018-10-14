@@ -1,5 +1,9 @@
 package benjaminkomen.jwiki.core;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
 import okhttp3.HttpUrl;
 
 /**
@@ -7,58 +11,75 @@ import okhttp3.HttpUrl;
  *
  * @author Fastily
  */
+@Getter
+@Builder
+@AllArgsConstructor(access = AccessLevel.PUBLIC)
 public final class Conf {
     /**
      * Toggles logging of debug information to std err. Disabled (false) by default.
      */
-    public boolean debug = false;
+    private boolean debug;
 
     /**
      * The {@code User-Agent} header to use for HTTP requests.
      */
-    public String userAgent = String.format("jwiki on %s %s with JVM %s", System.getProperty("os.name"),
-            System.getProperty("os.version"), System.getProperty("java.version"));
+    private String userAgent;
 
     /**
      * The url pointing to the base MediaWiki API endpoint.
      */
-    protected final HttpUrl baseURL;
+    private HttpUrl baseURL;
 
     /**
      * Default Wiki API path (goes after domain). Don't change this after logging in.
      */
-    protected String scptPath = "w/api.php";
+    private String scptPath;
 
     /**
      * Flag indicating whether the logged in user is a bot.
      */
-    protected boolean isBot = false;
+    private boolean isBot;
 
     /**
      * The hostname of the Wiki to target. Example: {@code en.wikipedia.org}
      */
-    public final String hostname;
+    private String hostname;
 
     /**
      * The low maximum limit for maximum number of list items returned for queries that return lists. Use this if a max
      * value is needed but where the client does not know the max.
      */
-    protected int maxResultLimit = 500;
+    private int maxResultLimit;
 
     /**
      * User name (without namespace prefix), only set if user is logged in.
      */
-    protected String uname = null;
+    private String uname;
 
     /**
      * The logger associated with this Conf.
      */
-    protected ColorLog log;
+    private ColorLog log;
 
     /**
      * CSRF token. Used for actions that change Wiki content.
      */
-    protected String token = "+\\";
+    private String token;
+
+    {
+        this.debug = false;
+        this.userAgent = String.format("jwiki on %s %s with JVM %s", System.getProperty("os.name"),
+                System.getProperty("os.version"), System.getProperty("java.version"));
+        this.scptPath = "w/api.php";
+        this.isBot = false;
+        this.maxResultLimit = 500;
+        this.uname = null;
+        this.token = "+\\";
+    }
+
+    private Conf() {
+        // no-args constructor
+    }
 
     /**
      * Constructor, should only be called by new instances of Wiki.
@@ -68,8 +89,11 @@ public final class Conf {
      */
     protected Conf(HttpUrl baseURL, ColorLog log) {
         this.baseURL = baseURL;
-        hostname = baseURL.host();
-
+        this.hostname = baseURL.host();
         this.log = log;
+    }
+
+    public void setBot(boolean bot) {
+        isBot = bot;
     }
 }

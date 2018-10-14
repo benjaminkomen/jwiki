@@ -24,7 +24,7 @@ Try out the [examples](https://github.com/benjaminkomen/jwiki/wiki/Examples).
 
 #### Gradle
 ```groovy
-compile 'fastily:jwiki:2.0.0'
+compile 'benjaminkomen:jwiki:2.0.0'
 ```
 
 ## Build

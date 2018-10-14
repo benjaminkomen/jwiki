@@ -1,5 +1,7 @@
 package benjaminkomen.jwiki.util;
 
+import lombok.Getter;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,12 +14,13 @@ import java.util.Map;
  * @param <V> The type of the values, which will be stored in an ArrayList.
  * @author Fastily
  */
+@Getter
 public class MultiMap<K, V> {
     /**
      * The backing structure for this MapList. This is public because a getter would just return a reference to this
      * anyways.
      */
-    public final Map<K, List<V>> backingMap = new HashMap<>();
+    private final Map<K, List<V>> backingMap = new HashMap<>();
 
     public MultiMap() {
         // no-args constructor

@@ -1,5 +1,8 @@
 package benjaminkomen.jwiki.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.file.FileSystems;
 import java.time.format.DateTimeFormatter;
 
@@ -9,6 +12,9 @@ import java.time.format.DateTimeFormatter;
  * @author Fastily
  */
 public final class FSystem {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FSystem.class);
+
     /**
      * The default line separator for text files by OS. For Windows it's '\r\n' and for Mac/Unix it's just '\n'.
      */
@@ -35,7 +41,7 @@ public final class FSystem {
      */
     public static void errAndExit(String errorMessage) {
         if (errorMessage != null) {
-            System.err.println(errorMessage);
+            LOG.error(errorMessage);
         }
         System.exit(1);
     }
@@ -43,11 +49,11 @@ public final class FSystem {
     /**
      * Prints stack trace from specified error and exit.
      *
-     * @param e The error object.
-     * @param s Additional error message. Disable with null.
+     * @param error The error object.
+     * @param errorMessage Additional error message. Disable with null.
      */
-    public static void errAndExit(Throwable e, String s) {
-        e.printStackTrace();
-        errAndExit(s);
+    public static void errAndExit(Throwable error, String errorMessage) {
+        LOG.error(errorMessage, error);
+        errAndExit(errorMessage);
     }
 }

@@ -208,21 +208,21 @@ public class QueryTests {
         // Test 1
         List<Contrib> result = wiki.getContribs("FastilyClone", -1, false, NS.FILE);
 
-        assertEquals("File:FCTest2.svg", result.get(0).title); // descending
-        assertEquals("File:FCTest1.png", result.get(1).title);
+        assertEquals("File:FCTest2.svg", result.get(0).getTitle()); // descending
+        assertEquals("File:FCTest1.png", result.get(1).getTitle());
 
-        assertEquals(244225, result.get(0).revid);
-        assertEquals(244224, result.get(1).revid);
+        assertEquals(244225, result.get(0).getRevid());
+        assertEquals(244224, result.get(1).getRevid());
 
-        assertEquals(0, result.get(0).parentid);
-        assertEquals(0, result.get(1).parentid);
+        assertEquals(0, result.get(0).getParentid());
+        assertEquals(0, result.get(1).getParentid());
 
-        assertEquals(Instant.parse("2015-10-20T00:28:54Z"), result.get(0).timestamp);
-        assertEquals(Instant.parse("2015-10-20T00:28:32Z"), result.get(1).timestamp);
+        assertEquals(Instant.parse("2015-10-20T00:28:54Z"), result.get(0).getTimestamp());
+        assertEquals(Instant.parse("2015-10-20T00:28:32Z"), result.get(1).getTimestamp());
 
         // Test 2
         result = wiki.getContribs("FastilyClone", 1, true, NS.FILE);
-        assertEquals("File:FCTest1.png", result.get(0).title);
+        assertEquals("File:FCTest1.png", result.get(0).getTitle());
     }
 
     /**
@@ -243,20 +243,20 @@ public class QueryTests {
     public void testGetImageInfo() {
         // Test 1
         ImageInfo result = wiki.getImageInfo("File:FastilyTestR.svg").get(0);
-        assertEquals(477, result.height);
-        assertEquals(512, result.width);
-        assertEquals(876, result.size);
-        assertEquals("275e96b2660f761cca02b8d2cb5425bcaab4dd98", result.sha1);
+        assertEquals(477, result.getHeight());
+        assertEquals(512, result.getWidth());
+        assertEquals(876, result.getSize());
+        assertEquals("275e96b2660f761cca02b8d2cb5425bcaab4dd98", result.getSha1());
 
         // Test 2
         result = wiki.getImageInfo("File:FastilyTest.svg").get(0);
-        assertEquals(477, result.height);
-        assertEquals(512, result.width);
-        assertEquals(876, result.size);
-        assertEquals("275e96b2660f761cca02b8d2cb5425bcaab4dd98", result.sha1);
-        assertEquals("image/svg+xml", result.mime);
-        assertEquals(HttpUrl.parse("https://upload.wikimedia.org/wikipedia/test/f/f7/FastilyTest.svg"), result.url);
-        assertEquals("part of unit test for jwiki", result.summary);
+        assertEquals(477, result.getHeight());
+        assertEquals(512, result.getWidth());
+        assertEquals(876, result.getSize());
+        assertEquals("275e96b2660f761cca02b8d2cb5425bcaab4dd98", result.getSha1());
+        assertEquals("image/svg+xml", result.getMime());
+        assertEquals(HttpUrl.parse("https://upload.wikimedia.org/wikipedia/test/f/f7/FastilyTest.svg"), result.getUrl());
+        assertEquals("part of unit test for jwiki", result.getSummary());
     }
 
     /**
@@ -315,16 +315,16 @@ public class QueryTests {
         List<Revision> result = wiki.getRevisions("User:FastilyClone/Page/1", -1, false, null, null);
 
         assertEquals(3, result.size());
-        assertEquals("1", result.get(1).text);
-        assertEquals("s0", result.get(2).summary);
-        assertEquals(Instant.parse("2015-10-23T05:58:54Z"), result.get(0).timestamp);
+        assertEquals("1", result.get(1).getText());
+        assertEquals("s0", result.get(2).getSummary());
+        assertEquals(Instant.parse("2015-10-23T05:58:54Z"), result.get(0).getTimestamp());
 
         // Test 2
         result = wiki.getRevisions("User:FastilyClone/Page/1", 2, true, null, null);
 
         assertEquals(2, result.size());
-        assertEquals("s1", result.get(1).summary);
-        assertEquals("0", result.get(0).text);
+        assertEquals("s1", result.get(1).getSummary());
+        assertEquals("0", result.get(0).getText());
     }
 
     /**
@@ -459,24 +459,24 @@ public class QueryTests {
         List<PageSection> l = wiki.splitPageByHeader("User:Fastily/Sandbox/HelloWorld2");
 
         assertEquals(1, l.size());
-        assertEquals("Hello, World!", l.get(0).header);
-        assertEquals(2, l.get(0).level);
+        assertEquals("Hello, World!", l.get(0).getHeader());
+        assertEquals(2, l.get(0).getLevel());
 
 
         l = wiki.splitPageByHeader("User:Fastily/Sandbox/HelloWorld");
         assertEquals(1, l.size());
-        assertNull(l.get(0).header);
-        assertEquals(-1, l.get(0).level);
-        assertEquals("Hello World!", l.get(0).text);
+        assertNull(l.get(0).getHeader());
+        assertEquals(-1, l.get(0).getLevel());
+        assertEquals("Hello World!", l.get(0).getText());
 
         l = wiki.splitPageByHeader("User:Fastily/Sandbox/Article");
         assertEquals(3, l.size());
-        assertNull(l.get(0).header);
-        assertEquals("Section 1", l.get(1).header);
-        assertEquals("Section 2", l.get(2).header);
+        assertNull(l.get(0).getHeader());
+        assertEquals("Section 1", l.get(1).getHeader());
+        assertEquals("Section 2", l.get(2).getHeader());
 
-        assertEquals("Start of an article\n\n", l.get(0).text);
-        assertEquals("==Section 2==\nFoo Baz Bar", l.get(2).text);
+        assertEquals("Start of an article\n\n", l.get(0).getText());
+        assertEquals("==Section 2==\nFoo Baz Bar", l.get(2).getText());
     }
 
     /**

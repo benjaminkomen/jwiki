@@ -1,5 +1,9 @@
 package benjaminkomen.jwiki.core;
 
+import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -9,16 +13,19 @@ import java.time.format.DateTimeFormatter;
  *
  * @author Fastily
  */
+@Getter
 class ColorLog {
     /**
      * The date formatter prefixing output.
      */
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm:ss a");
 
+    private static final Logger LOG = LoggerFactory.getLogger(ColorLog.class);
+
     /**
      * Flag indicating whether logging with this object is allowed.
      */
-    protected boolean enabled;
+    private boolean enabled;
 
     /**
      * Constructor, creates a new ColorLog.
@@ -29,6 +36,10 @@ class ColorLog {
         enabled = enableLogging;
     }
 
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     /**
      * Logs a message for a wiki method.
      *
@@ -37,9 +48,29 @@ class ColorLog {
      * @param logLevel The identifier to log the message at (e.g. "INFO", "WARNING")
      * @param color    The color to print the message with. Output will only be colored if this terminal supports it.
      */
-    private void log(Wiki wiki, String message, String logLevel, CC color) {
-        if (enabled) {
-            System.err.printf("%s%n%s: \u001B[3%dm%s: %s\u001B[0m%n", LocalDateTime.now().format(DATE_TIME_FORMATTER), logLevel, color.v, wiki, message);
+    @SuppressWarnings("squid:S1192")
+    private void log(Wiki wiki, String message, LogLevel logLevel, Color color) {
+        if (enabled && (LOG.isDebugEnabled() || LOG.isErrorEnabled() || LOG.isInfoEnabled() || LOG.isTraceEnabled() || LOG.isWarnEnabled())) {
+            final String timestamp = LocalDateTime.now().format(DATE_TIME_FORMATTER);
+            switch (logLevel) {
+                case WARNING:
+                    LOG.warn(String.format("%s%n%s: \u001B[3%dm%s: %s\u001B[0m%n", timestamp, logLevel, color.colorValue, wiki, message));
+                    break;
+                case INFO:
+                    LOG.info(String.format("%s%n%s: \u001B[3%dm%s: %s\u001B[0m%n", timestamp, logLevel, color.colorValue, wiki, message));
+                    break;
+                case ERROR:
+                    LOG.error(String.format("%s%n%s: \u001B[3%dm%s: %s\u001B[0m%n", timestamp, logLevel, color.colorValue, wiki, message));
+                    break;
+                case DEBUG:
+                    LOG.debug(String.format("%s%n%s: \u001B[3%dm%s: %s\u001B[0m%n", timestamp, logLevel, color.colorValue, wiki, message));
+                    break;
+                case FYI:
+                    LOG.info(String.format("%s%n%s: \u001B[3%dm%s: %s\u001B[0m%n", timestamp, logLevel, color.colorValue, wiki, message));
+                    break;
+                default:
+                    throw new IllegalStateException("Log level " + logLevel + " is unknown.");
+            }
         }
     }
 
@@ -50,7 +81,7 @@ class ColorLog {
      * @param s    The String to print.
      */
     protected void warn(Wiki wiki, String s) {
-        log(wiki, s, "WARNING", CC.YELLOW);
+        log(wiki, s, LogLevel.WARNING, Color.YELLOW);
     }
 
     /**
@@ -60,7 +91,7 @@ class ColorLog {
      * @param s    The String to print.
      */
     protected void info(Wiki wiki, String s) {
-        log(wiki, s, "INFO", CC.GREEN);
+        log(wiki, s, LogLevel.INFO, Color.GREEN);
     }
 
     /**
@@ -70,7 +101,7 @@ class ColorLog {
      * @param s    The String to print.
      */
     protected void error(Wiki wiki, String s) {
-        log(wiki, s, "ERROR", CC.RED);
+        log(wiki, s, LogLevel.ERROR, Color.RED);
     }
 
     /**
@@ -80,7 +111,7 @@ class ColorLog {
      * @param s    The String to print.
      */
     protected void debug(Wiki wiki, String s) {
-        log(wiki, s, "DEBUG", CC.PURPLE);
+        log(wiki, s, LogLevel.DEBUG, Color.PURPLE);
     }
 
     /**
@@ -90,7 +121,7 @@ class ColorLog {
      * @param s    The String to print.
      */
     protected void fyi(Wiki wiki, String s) {
-        log(wiki, s, "FYI", CC.CYAN);
+        log(wiki, s, LogLevel.FYI, Color.CYAN);
     }
 
     /**
@@ -98,7 +129,7 @@ class ColorLog {
      *
      * @author Fastily
      */
-    private enum CC {
+    private enum Color {
         /**
          * A font color, black, which can be applied to a String if your terminal supports it.
          */
@@ -142,15 +173,23 @@ class ColorLog {
         /**
          * The ascii color value.
          */
-        private int v;
+        private final int colorValue;
 
         /**
-         * Constructor, creates a new CC.
+         * Constructor, creates a new Color.
          *
-         * @param v The color code to use.
+         * @param colorValue The color code to use.
          */
-        private CC(int v) {
-            this.v = v;
+        Color(int colorValue) {
+            this.colorValue = colorValue;
         }
+    }
+
+    private enum LogLevel {
+        WARNING,
+        INFO,
+        ERROR,
+        DEBUG,
+        FYI;
     }
 }

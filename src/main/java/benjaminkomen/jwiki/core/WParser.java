@@ -2,6 +2,9 @@ package benjaminkomen.jwiki.core;
 
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
+import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
@@ -28,6 +31,9 @@ import java.util.Set;
  */
 public class WParser {
 
+    private static final Logger LOG = LoggerFactory.getLogger(WParser.class);
+    private static final String VAR_TEMPLATE = "template";
+
     private WParser() {
         // no-args constructor
     }
@@ -44,14 +50,14 @@ public class WParser {
         try {
             XMLEventReader r = XMLInputFactory.newInstance()
                     .createXMLEventReader(new StringReader(GSONP
-                            .getStr(GSONP.getNestedJsonObject(GSONP.jp.parse(wiki.basicPOST("parse", queryParams).body().string()).getAsJsonObject(),
+                            .getString(GSONP.getNestedJsonObject(GSONP.getJsonParser().parse(wiki.basicPOST("parse", queryParams).body().string()).getAsJsonObject(),
                                     FL.toStringArrayList("parse", "parsetree")), "*")));
 
             WikiText root = new WikiText();
             while (r.hasNext()) {
                 XMLEvent e = r.nextEvent();
 
-                if (e.isStartElement() && nameIs(e.asStartElement(), "template")) {
+                if (e.isStartElement() && nameIs(e.asStartElement(), VAR_TEMPLATE)) {
                     root.append(parseTemplate(r, root));
                 } else if (e.isCharacters()) {
                     root.append(cToStr(e));
@@ -59,7 +65,7 @@ public class WParser {
             }
             return root;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Error during parsing query", e);
             return null;
         }
     }
@@ -119,7 +125,7 @@ public class WParser {
                     default:
                         // do nothing - skip part tags
                 }
-            } else if (e.isEndElement() && nameIs(e.asEndElement(), "template"))
+            } else if (e.isEndElement() && nameIs(e.asEndElement(), VAR_TEMPLATE))
                 break;
         }
         return t;
@@ -139,7 +145,7 @@ public class WParser {
         while (r.hasNext()) {
             XMLEvent e = r.nextEvent();
 
-            if (e.isStartElement() && nameIs(e.asStartElement(), "template")) {
+            if (e.isStartElement() && nameIs(e.asStartElement(), VAR_TEMPLATE)) {
                 root.append(parseTemplate(r, root));
             } else if (e.isCharacters()) {
                 root.append(cToStr(e));
@@ -316,21 +322,22 @@ public class WParser {
      *
      * @author Fastily
      */
+    @Getter
     public static class WTemplate {
         /**
          * The parent WikiText object, if necessary
          */
-        protected WikiText parent;
+        private WikiText parent;
 
         /**
          * This WTemplate's title
          */
-        public String title = "";
+        private String title = "";
 
         /**
          * The Map tracking this object's parameters.
          */
-        protected Map<String, WikiText> params = new LinkedHashMap<>();
+        private Map<String, WikiText> params = new LinkedHashMap<>();
 
         /**
          * Creates a new, empty WTemplate object.
@@ -366,39 +373,39 @@ public class WParser {
         }
 
         /**
-         * Test if the specified key {@code k} exists in this WTemplate. This does not check whether the parameter is empty
+         * Test if the specified key {@code key} exists in this WTemplate. This does not check whether the parameter is empty
          * or not.
          *
-         * @param k The key to check
-         * @return True if there is a mapping for {@code k} in this WTemplate.
+         * @param key The key to check
+         * @return True if there is a mapping for {@code key} in this WTemplate.
          */
-        public boolean has(String k) {
-            return params.containsKey(k) && !params.get(k).wikiTextStorage.isEmpty();
+        public boolean has(String key) {
+            return params.containsKey(key) && !params.get(key).wikiTextStorage.isEmpty();
         }
 
         /**
-         * Gets the specified WikiText value associated with key {@code k} in this WTemplate.
+         * Gets the specified WikiText value associated with key {@code key} in this WTemplate.
          *
-         * @param k The key to get WikiText for.
-         * @return The WikiText, or null if there is no mapping for {@code k}
+         * @param key The key to get WikiText for.
+         * @return The WikiText, or null if there is no mapping for {@code key}
          */
-        public WikiText get(String k) {
-            return params.get(k);
+        public WikiText get(String key) {
+            return params.get(key);
         }
 
         /**
          * Puts a new parameter in this Template.
          *
-         * @param k The name of the parameter
-         * @param v The value of the parameter; acceptable types are WikiText, String, and WTemplate.
+         * @param key The name of the parameter
+         * @param value The value of the parameter; acceptable types are WikiText, String, and WTemplate.
          */
-        public void put(String k, Object v) {
-            if (v instanceof WikiText) {
-                params.put(k, (WikiText) v);
-            } else if (v instanceof String || v instanceof WTemplate) {
-                params.put(k, new WikiText(v));
+        public void put(String key, Object value) {
+            if (value instanceof WikiText) {
+                params.put(key, (WikiText) value);
+            } else if (value instanceof String || value instanceof WTemplate) {
+                params.put(key, new WikiText(value));
             } else {
-                throw new IllegalArgumentException(String.format("'%s' is not an acceptable type", v));
+                throw new IllegalArgumentException(String.format("'%s' is not an acceptable type", value));
             }
         }
 

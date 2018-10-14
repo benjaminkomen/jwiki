@@ -28,8 +28,8 @@ public class ActionTests extends BaseMockTemplate {
             fail(e);
         }
 
-        assertEquals(NS.FILE.value, wiki.whichNS("File:Test.jpg").value);
-        assertEquals(NS.MAIN.value, wiki.whichNS("hello").value);
+        assertEquals(NS.FILE.getValue(), wiki.whichNS("File:Test.jpg").getValue());
+        assertEquals(NS.MAIN.getValue(), wiki.whichNS("hello").getValue());
     }
 
     /**

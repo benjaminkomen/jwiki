@@ -3,9 +3,12 @@ package benjaminkomen.jwiki.core;
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import com.google.gson.JsonObject;
+import lombok.Getter;
 import okhttp3.Response;
 import okio.BufferedSource;
 import okio.Okio;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,6 +23,11 @@ import java.util.Map;
  * @author Fastily
  */
 class WAction {
+
+    private static final String VAR_TITLE = "title";
+    private static final String VAR_FILEKEY = "filekey";
+    private static final String VAR_UPLOAD = "upload";
+    private static final Logger LOG = LoggerFactory.getLogger(WAction.class);
 
     private WAction() {
         // no-args constructor
@@ -37,19 +45,20 @@ class WAction {
     protected static ActionResult postAction(Wiki wiki, String action, boolean applyToken, Map<String, String> form) {
         Map<String, String> fl = FL.produceMap("format", "json");
         if (applyToken) {
-            fl.put("token", wiki.conf.token);
+            fl.put("token", wiki.getWikiConfiguration().getToken());
         }
 
         fl.putAll(form);
 
         try {
-            JsonObject result = GSONP.jp.parse(wiki.apiclient.basicPOST(FL.produceMap("action", action), fl).body().string()).getAsJsonObject();
-            if (wiki.conf.debug) {
-                wiki.conf.log.debug(wiki, GSONP.gsonPP.toJson(result));
+            JsonObject result = GSONP.getJsonParser().parse(wiki.getApiclient().basicPOST(FL.produceMap("action", action), fl).body().string()).getAsJsonObject();
+            if (wiki.getWikiConfiguration().isDebug()) {
+                wiki.getWikiConfiguration().getLog().debug(wiki, GSONP.getGsonPrettyPrint().toJson(result));
             }
 
             return ActionResult.wrap(result, action);
         } catch (Exception e) {
+            LOG.error("Error during posting action or parsing json.", e);
             return ActionResult.NONE;
         }
     }
@@ -65,14 +74,14 @@ class WAction {
      * @return True on success
      */
     protected static boolean addText(Wiki wiki, String title, String text, String summary, boolean append) {
-        wiki.conf.log.info(wiki, "Adding text to " + title);
+        wiki.getWikiConfiguration().getLog().info(wiki, "Adding text to " + title);
 
-        Map<String, String> pl = FL.produceMap("title", title, append ? "appendtext" : "prependtext", text, "summary", summary);
-        if (wiki.conf.isBot) {
-            pl.put("bot", "");
+        Map<String, String> parameterList = FL.produceMap(VAR_TITLE, title, append ? "appendtext" : "prependtext", text, "summary", summary);
+        if (wiki.getWikiConfiguration().isBot()) {
+            parameterList.put("bot", "");
         }
 
-        return postAction(wiki, "edit", true, pl) == ActionResult.SUCCESS;
+        return postAction(wiki, "edit", true, parameterList) == ActionResult.SUCCESS;
     }
 
     /**
@@ -85,36 +94,35 @@ class WAction {
      * @return True on success.
      */
     protected static boolean edit(Wiki wiki, String title, String text, String summary) {
-        wiki.conf.log.info(wiki, "Editing " + title);
+        wiki.getWikiConfiguration().getLog().info(wiki, "Editing " + title);
 
-        Map<String, String> pl = FL.produceMap("title", title, "text", text, "summary", summary);
-        if (wiki.conf.isBot) {
-            pl.put("bot", "");
+        Map<String, String> parameterList = FL.produceMap(VAR_TITLE, title, "text", text, "summary", summary);
+        if (wiki.getWikiConfiguration().isBot()) {
+            parameterList.put("bot", "");
         }
 
         for (int i = 0; i < 5; i++) {
-            switch (postAction(wiki, "edit", true, pl)) {
+            switch (postAction(wiki, "edit", true, parameterList)) {
                 case SUCCESS:
                     return true;
                 case RATELIMITED:
                     try {
-                        wiki.conf.log.fyi(wiki, "Ratelimited by server, sleeping 10 seconds");
+                        wiki.getWikiConfiguration().getLog().fyi(wiki, "Ratelimited by server, sleeping 10 seconds");
                         Thread.sleep(10000);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        LOG.error("Error during interrupting thread.", e);
                         return false;
                     }
                     break;
                 case PROTECTED:
-                    wiki.conf.log.error(wiki, title + " is protected, cannot edit.");
+                    wiki.getWikiConfiguration().getLog().error(wiki, title + " is protected, cannot edit.");
                     return false;
-
                 default:
-                    wiki.conf.log.warn(wiki, "Got an error, retrying: " + i);
+                    wiki.getWikiConfiguration().getLog().warn(wiki, "Got an error, retrying: " + i);
             }
         }
 
-        wiki.conf.log.error(wiki, String.format("Could not edit '%s', aborting.", title));
+        wiki.getWikiConfiguration().getLog().error(wiki, String.format("Could not edit '%s', aborting.", title));
         return false;
     }
 
@@ -127,8 +135,8 @@ class WAction {
      * @return True on success
      */
     protected static boolean delete(Wiki wiki, String title, String reason) {
-        wiki.conf.log.info(wiki, "Deleting " + title);
-        return postAction(wiki, "delete", true, FL.produceMap("title", title, "reason", reason)) == ActionResult.NONE;
+        wiki.getWikiConfiguration().getLog().info(wiki, "Deleting " + title);
+        return postAction(wiki, "delete", true, FL.produceMap(VAR_TITLE, title, "reason", reason)) == ActionResult.NONE;
     }
 
     /**
@@ -140,10 +148,10 @@ class WAction {
      * @return True on success
      */
     protected static boolean undelete(Wiki wiki, String title, String reason) {
-        wiki.conf.log.info(wiki, "Restoring " + title);
+        wiki.getWikiConfiguration().getLog().info(wiki, "Restoring " + title);
 
         for (int i = 0; i < 10; i++) {
-            if (postAction(wiki, "undelete", true, FL.produceMap("title", title, "reason", reason)) == ActionResult.NONE) {
+            if (postAction(wiki, "undelete", true, FL.produceMap(VAR_TITLE, title, "reason", reason)) == ActionResult.NONE) {
                 return true;
             }
         }
@@ -158,7 +166,7 @@ class WAction {
      * @param titles The title(s) to purge.
      */
     protected static void purge(Wiki wiki, List<String> titles) {
-        wiki.conf.log.info(wiki, "Purging :" + titles);
+        wiki.getWikiConfiguration().getLog().info(wiki, "Purging :" + titles);
 
         Map<String, String> pl = FL.produceMap("titles", FL.pipeFence(titles));
         postAction(wiki, "purge", false, pl);
@@ -169,63 +177,63 @@ class WAction {
      *
      * @param wiki    The Wiki to work on.
      * @param title   The title to upload the file to, excluding the {@code File:} prefix.
-     * @param desc    The text to put on the newly uploaded file description page
+     * @param description    The text to put on the newly uploaded file description page
      * @param summary The edit summary to use when uploading a new file.
      * @param file    The Path to the file to upload.
      * @return True on success.
      */
-    protected static boolean upload(Wiki wiki, String title, String desc, String summary, Path file) {
-        wiki.conf.log.info(wiki, "Uploading " + file);
+    protected static boolean upload(Wiki wiki, String title, String description, String summary, Path file) {
+        wiki.getWikiConfiguration().getLog().info(wiki, "Uploading " + file);
 
         try {
             ChunkManager cm = new ChunkManager(file);
 
             String filekey = null;
-            String fn = file.getFileName().toString();
+            String fileName = file.getFileName().toString();
 
-            Chunk c;
-            while ((c = cm.nextChunk()) != null) {
-                wiki.conf.log.fyi(wiki, String.format("Uploading chunk [%d of %d] of '%s'", cm.chunkCnt, cm.totalChunks, file));
+            Chunk chunk;
+            while ((chunk = cm.nextChunk()) != null) {
+                wiki.getWikiConfiguration().getLog().fyi(wiki, String.format("Uploading chunk [%d of %d] of '%s'", cm.getChunkCount(), cm.getTotalChunks(), file));
 
-                Map<String, String> pl = FL.produceMap("format", "json", "filename", title, "token", wiki.conf.token, "ignorewarnings", "1",
-                        "stash", "1", "offset", "" + c.offset, "filesize", "" + c.filesize);
+                Map<String, String> parameterList = FL.produceMap("format", "json", "filename", title, "token", wiki.getWikiConfiguration().getToken(), "ignorewarnings", "1",
+                        "stash", "1", "offset", "" + chunk.offset, "filesize", "" + chunk.filesize);
                 if (filekey != null) {
-                    pl.put("filekey", filekey);
+                    parameterList.put(VAR_FILEKEY, filekey);
                 }
 
                 for (int i = 0; i < 5; i++) {
                     try {
-                        Response r = wiki.apiclient.multiPartFilePOST(FL.produceMap("action", "upload"), pl, fn, c.bl);
-                        if (!r.isSuccessful()) {
-                            wiki.conf.log.error(wiki, "Bad response from server: " + r.code());
+                        Response response = wiki.getApiclient().multiPartFilePOST(FL.produceMap("action", VAR_UPLOAD), parameterList, fileName, chunk.getBinaryData());
+                        if (!response.isSuccessful()) {
+                            wiki.getWikiConfiguration().getLog().error(wiki, "Bad response from server: " + response.code());
                             continue;
                         }
 
-                        filekey = GSONP.getStr(GSONP.jp.parse(r.body().string()).getAsJsonObject().getAsJsonObject("upload"), "filekey");
+                        filekey = GSONP.getString(GSONP.getJsonParser().parse(response.body().string()).getAsJsonObject().getAsJsonObject(VAR_UPLOAD), VAR_FILEKEY);
                         if (filekey != null) {
                             break;
                         }
                     } catch (Exception e) {
-                        wiki.conf.log.error(wiki, "Encountered an error, retrying - " + i);
-                        e.printStackTrace();
+                        wiki.getWikiConfiguration().getLog().error(wiki, "Encountered an error, retrying - " + i);
+                        LOG.error("", e);
                     }
                 }
             }
 
             for (int i = 0; i < 3; i++) {
-                wiki.conf.log.info(wiki, String.format("Unstashing '%s' as '%s'", filekey, title));
+                wiki.getWikiConfiguration().getLog().info(wiki, String.format("Unstashing '%s' as '%s'", filekey, title));
 
-                if (postAction(wiki, "upload", true, FL.produceMap("filename", title, "text", desc, "comment", summary, "filekey", filekey,
+                if (postAction(wiki, VAR_UPLOAD, true, FL.produceMap("filename", title, "text", description, "comment", summary, VAR_FILEKEY, filekey,
                         "ignorewarnings", "true")) == ActionResult.SUCCESS) {
                     return true;
                 }
 
-                wiki.conf.log.error(wiki, "Encountered an error while unstashing, retrying - " + i);
+                wiki.getWikiConfiguration().getLog().error(wiki, "Encountered an error while unstashing, retrying - " + i);
             }
 
             return false;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("", e);
             return false;
         }
     }
@@ -281,13 +289,15 @@ class WAction {
         private static ActionResult wrap(JsonObject jo, String action) {
             try {
                 if (jo.has(action)) {
-                    if ("Success".equals(GSONP.getStr(jo.getAsJsonObject(action), "result"))) {
+                    if ("Success".equals(GSONP.getString(jo.getAsJsonObject(action), "result"))) {
                         return SUCCESS;
                     } else {
-                        System.err.printf("Something isn't right.  Got back '%s', missing a 'result'?%n", GSONP.gson.toJson(jo));
+                        if (LOG.isErrorEnabled()) {
+                            LOG.error(String.format("Something isn't right.  Got back '%s', missing a 'result'?%n", GSONP.getGson().toJson(jo)));
+                        }
                     }
                 } else if (jo.has("error")) {
-                    switch (GSONP.getStr(jo.getAsJsonObject("error"), "code")) {
+                    switch (GSONP.getString(jo.getAsJsonObject("error"), "code")) {
                         case "notoken":
                             return NOTOKEN;
                         case "badtoken":
@@ -312,6 +322,7 @@ class WAction {
      *
      * @author Fastily
      */
+    @Getter
     private static final class ChunkManager {
         /**
          * The default chunk size is 4 Mb
@@ -341,7 +352,7 @@ class WAction {
         /**
          * Counts the number of chunks created so far.
          */
-        private int chunkCnt = 0;
+        private int chunkCount = 0;
 
         /**
          * Creates a new Chunk Manager. Create a new ChunkManager for every upload.
@@ -376,7 +387,7 @@ class WAction {
             Chunk c;
 
             try {
-                c = new Chunk(offset, filesize, ++chunkCnt == totalChunks ? src.readByteArray() : src.readByteArray(CHUNKSIZE));
+                c = new Chunk(offset, filesize, ++chunkCount == totalChunks ? src.readByteArray() : src.readByteArray(CHUNKSIZE));
 
                 offset += CHUNKSIZE;
 
@@ -387,7 +398,7 @@ class WAction {
                 return c;
 
             } catch (Exception e) {
-                e.printStackTrace();
+                LOG.error("Error during closing bytearray.", e);
                 return null;
             }
         }
@@ -398,30 +409,31 @@ class WAction {
      *
      * @author Fastily
      */
+    @Getter
     private static final class Chunk {
         /**
          * The offset and filesize (both in bytes)
          */
-        protected final long offset;
-        protected final long filesize;
+        private final long offset;
+        private final long filesize;
 
         /**
          * The raw binary data for this Chunk
          */
-        protected final byte[] bl;
+        private final byte[] binaryData;
 
         /**
          * Creates a new Chunk to upload
          *
-         * @param offset   The byte offset of this Chunk
-         * @param filesize The total file size of the file this Chunk belongs to
-         * @param bl       The raw binary data contained by this chunk
+         * @param offset     The byte offset of this Chunk
+         * @param filesize   The total file size of the file this Chunk belongs to
+         * @param binaryData The raw binary data contained by this chunk
          */
-        private Chunk(long offset, long filesize, byte[] bl) {
+        private Chunk(long offset, long filesize, byte[] binaryData) {
             this.offset = offset;
             this.filesize = filesize;
 
-            this.bl = bl;
+            this.binaryData = binaryData;
         }
     }
 }

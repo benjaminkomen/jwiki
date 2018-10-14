@@ -5,7 +5,10 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -15,6 +18,9 @@ import java.nio.file.Paths;
  * @author Fastily
  */
 public class BaseMockTemplate {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BaseMockTemplate.class);
+
     /**
      * The mock MediaWiki server
      */
@@ -28,14 +34,16 @@ public class BaseMockTemplate {
     /**
      * Initializes mock objects
      *
-     * @throws Throwable If the MockWebServer failed to start.
+     * @throws IOException If the MockWebServer failed to start.
      */
     @BeforeEach
-    public void setUp() throws Throwable {
+    public void setUp() throws IOException {
         server = new MockWebServer();
         server.start();
 
-        System.err.printf("[FYI]: MockServer is @ [%s]%n", server.url("/w/api.php"));
+        if (LOG.isInfoEnabled()) {
+            LOG.info(String.format("[FYI]: MockServer is @ [%s]%n", server.url("/w/api.php")));
+        }
 
         initWiki();
     }
@@ -43,10 +51,10 @@ public class BaseMockTemplate {
     /**
      * Disposes of mock objects
      *
-     * @throws Throwable If the MockWebServer failed to exit.
+     * @throws IOException If the MockWebServer failed to exit.
      */
     @AfterEach
-    public void tearDown() throws Throwable {
+    public void tearDown() throws IOException {
         wiki = null;
 
         server.shutdown();
@@ -56,14 +64,14 @@ public class BaseMockTemplate {
     /**
      * Loads a MockResponse into the {@code server}'s queue.
      *
-     * @param fn The text file, without a {@code .txt} extension, to load a response from.
+     * @param fileName The text file, without a {@code .txt} extension, to load a response from.
      */
-    protected void addResponse(String fn) {
+    protected void addResponse(String fileName) {
         try {
             server.enqueue(new MockResponse()
-                    .setBody(String.join("\n", Files.readAllLines(Paths.get(getClass().getResource(fn + ".json").toURI())))));
-        } catch (Throwable e) {
-            e.printStackTrace();
+                    .setBody(String.join("\n", Files.readAllLines(Paths.get(getClass().getResource(fileName + ".json").toURI())))));
+        } catch (Exception e) {
+            LOG.error("Error reading mock json file", e);
             throw new IllegalStateException("Should *never* reach here. Is a mock configuration file missing?");
         }
     }

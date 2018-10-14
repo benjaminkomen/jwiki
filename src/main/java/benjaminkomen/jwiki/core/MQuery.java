@@ -12,7 +12,6 @@ import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +31,9 @@ public final class MQuery {
      * The group {@code prop} query (multiple titles query) maximum
      */
     private static final int GROUP_QUERY_MAX = 50;
+    private static final String ERROR_MESSAGE_NULL_INPUT = "null is not an acceptable title to query with";
+    private static final String VAR_TITLES = "titles";
+    private static final String VAR_TITLE = "title";
 
     private MQuery() {
         // no-args constructor
@@ -53,22 +55,22 @@ public final class MQuery {
         MultiMap<String, JsonObject> l = new MultiMap<>();
 
         if (FL.containsNull(titles)) {
-            throw new IllegalArgumentException("null is not an acceptable title to query with");
+            throw new IllegalArgumentException(ERROR_MESSAGE_NULL_INPUT);
         }
 
         GroupQueue<String> gq = new GroupQueue<>(titles, GROUP_QUERY_MAX);
 
         while (gq.has()) {
-            WQuery wq = new WQuery(wiki, qut).set("titles", gq.poll());
+            WQuery wq = new WQuery(wiki, qut).set(VAR_TITLES, gq.poll());
             if (pl != null) {
                 pl.forEach(wq::set);
             }
 
             while (wq.has()) {
-                wq.next().propComp("title", elemArrKey).forEach((k, v) -> {
+                wq.next().propComp(VAR_TITLE, elemArrKey).forEach((k, v) -> {
                     l.touch(k);
                     if (v != null) {
-                        l.put(k, GSONP.getJAofJO(v.getAsJsonArray()));
+                        l.put(k, GSONP.getJsonArrayofJsonObject(v.getAsJsonArray()));
                     }
                 });
             }
@@ -91,17 +93,17 @@ public final class MQuery {
         Map<String, JsonElement> m = new HashMap<>();
 
         if (FL.containsNull(titles)) {
-            throw new IllegalArgumentException("null is not an acceptable title to query with");
+            throw new IllegalArgumentException(ERROR_MESSAGE_NULL_INPUT);
         }
 
         GroupQueue<String> gq = new GroupQueue<>(titles, GROUP_QUERY_MAX);
         while (gq.has()) {
-            WQuery wq = new WQuery(wiki, qut).set("titles", gq.poll());
+            WQuery wq = new WQuery(wiki, qut).set(VAR_TITLES, gq.poll());
             if (pl != null) {
                 pl.forEach(wq::set);
             }
 
-            m.putAll(wq.next().propComp("title", eKey));
+            m.putAll(wq.next().propComp(VAR_TITLE, eKey));
         }
         return m;
     }
@@ -122,7 +124,7 @@ public final class MQuery {
         List<JsonObject> l = new ArrayList<>();
 
         if (FL.containsNull(titles)) {
-            throw new IllegalArgumentException("null is not an acceptable title to query with");
+            throw new IllegalArgumentException(ERROR_MESSAGE_NULL_INPUT);
         }
 
         GroupQueue<String> gq = new GroupQueue<>(titles, GROUP_QUERY_MAX);
@@ -147,7 +149,7 @@ public final class MQuery {
      */
     private static Map<String, List<String>> parsePropToSingle(MultiMap<String, JsonObject> m, String elemKey) {
         Map<String, List<String>> xl = new HashMap<>();
-        m.backingMap.forEach((k, v) -> xl.put(k, FL.toArrayList(v.stream().map(e -> GSONP.getStr(e, elemKey)))));
+        m.getBackingMap().forEach((k, v) -> xl.put(k, FL.toArrayList(v.stream().map(e -> GSONP.getString(e, elemKey)))));
 
         return xl;
     }
@@ -160,7 +162,7 @@ public final class MQuery {
      * @return Each title, and the values that were found for it.
      */
     private static Map<String, List<String>> parsePropToSingle(MultiMap<String, JsonObject> m) {
-        return parsePropToSingle(m, "title");
+        return parsePropToSingle(m, VAR_TITLE);
     }
 
     /**
@@ -174,8 +176,8 @@ public final class MQuery {
     private static Map<String, List<Tuple<String, String>>> parsePropToDouble(MultiMap<String, JsonObject> m, String elemKey1,
                                                                               String elemKey2) {
         Map<String, List<Tuple<String, String>>> xl = new HashMap<>();
-        m.backingMap.forEach(
-                (k, v) -> xl.put(k, FL.toArrayList(v.stream().map(e -> new Tuple<>(GSONP.getStr(e, elemKey1), GSONP.getStr(e, elemKey2))))));
+        m.getBackingMap().forEach(
+                (k, v) -> xl.put(k, FL.toArrayList(v.stream().map(e -> new Tuple<>(GSONP.getString(e, elemKey1), GSONP.getString(e, elemKey2))))));
 
         return xl;
     }
@@ -190,7 +192,7 @@ public final class MQuery {
     public static Map<String, List<String>> listUserRights(Wiki wiki, Collection<String> users) {
         Map<String, List<String>> l = new HashMap<>();
         getNoContList(wiki, users, WQuery.USERRIGHTS, null, "ususers", "users")
-                .forEach(jo -> l.put(GSONP.getStr(jo, "name"), GSONP.jaOfStrToAL(jo.getAsJsonArray("groups"))));
+                .forEach(jo -> l.put(GSONP.getString(jo, "name"), GSONP.convertJsonArrayToList(jo.getAsJsonArray("groups"))));
 
         return l;
     }
@@ -204,11 +206,11 @@ public final class MQuery {
      */
     public static Map<String, List<ImageInfo>> getImageInfo(Wiki wiki, Collection<String> titles) {
         Map<String, List<ImageInfo>> l = new HashMap<>();
-        getContProp(wiki, titles, WQuery.IMAGEINFO, null, "imageinfo").backingMap
-                .forEach((k, v) -> l.put(k, FL.toArrayList(v.stream().map(jo -> GSONP.gson.fromJson(jo, ImageInfo.class)))));
+        getContProp(wiki, titles, WQuery.IMAGEINFO, null, "imageinfo").getBackingMap()
+                .forEach((k, v) -> l.put(k, FL.toArrayList(v.stream().map(jo -> GSONP.getGson().fromJson(jo, ImageInfo.class)))));
 
         // MediaWiki imageinfo is not a well-behaved module
-        l.forEach((k, v) -> Collections.sort(v));
+        l.forEach((k, v) -> v.sort(ImageInfo.comparator()));
 
         return l;
     }
@@ -252,8 +254,8 @@ public final class MQuery {
             if (v == null) {
                 l.put(k, "");
             } else {
-                List<JsonObject> jl = GSONP.getJAofJO(v.getAsJsonArray());
-                l.put(k, jl == null || jl.isEmpty() ? "" : GSONP.getStr(jl.get(0), "*"));
+                List<JsonObject> jl = GSONP.getJsonArrayofJsonObject(v.getAsJsonArray());
+                l.put(k, jl == null || jl.isEmpty() ? "" : GSONP.getString(jl.get(0), "*"));
             }
         });
 
@@ -271,7 +273,7 @@ public final class MQuery {
     public static Map<String, List<String>> getLinksOnPage(Wiki wiki, Collection<String> titles, NS... ns) {
         Map<String, String> pl = new HashMap<>();
         if (ns != null && ns.length > 0) {
-            pl.put("plnamespace", wiki.nsl.createFilter(ns));
+            pl.put("plnamespace", wiki.getNamespaceManager().createFilter(ns));
         }
 
         return parsePropToSingle(getContProp(wiki, titles, WQuery.LINKSONPAGE, pl, "links"));
@@ -301,7 +303,7 @@ public final class MQuery {
     public static Map<String, List<String>> transcludesIn(Wiki wiki, Collection<String> titles, NS... ns) {
         Map<String, String> pl = new HashMap<>();
         if (ns.length > 0) {
-            pl.put("tinamespace", wiki.nsl.createFilter(ns));
+            pl.put("tinamespace", wiki.getNamespaceManager().createFilter(ns));
         }
 
         return parsePropToSingle(getContProp(wiki, titles, WQuery.TRANSCLUDEDIN, pl, "transcludedin"));
@@ -392,7 +394,7 @@ public final class MQuery {
      * @return A list of results keyed by title. The inner tuple is of the form (title, shorthand url notation).
      */
     public static Map<String, List<Tuple<String, String>>> globalUsage(Wiki wiki, Collection<String> titles) {
-        return parsePropToDouble(getContProp(wiki, titles, WQuery.GLOBALUSAGE, null, "globalusage"), "title", "wiki");
+        return parsePropToDouble(getContProp(wiki, titles, WQuery.GLOBALUSAGE, null, "globalusage"), VAR_TITLE, "wiki");
     }
 
     /**
@@ -408,8 +410,8 @@ public final class MQuery {
             l.put(s, s);
         }
 
-        getNoContList(wiki, titles, WQuery.RESOLVEREDIRECT, null, "titles", "redirects")
-                .forEach(jo -> l.put(GSONP.getStr(jo, "from"), GSONP.getStr(jo, "to")));
+        getNoContList(wiki, titles, WQuery.RESOLVEREDIRECT, null, VAR_TITLES, "redirects")
+                .forEach(jo -> l.put(GSONP.getString(jo, "from"), GSONP.getString(jo, "to")));
 
         return l;
     }
@@ -449,7 +451,7 @@ public final class MQuery {
                 getContProp(wiki, titles, WQuery.DUPLICATEFILES, null, "duplicatefiles"), "name", "shared");
 
         Map<String, List<String>> l = new HashMap<>();
-        xl.forEach((k, v) -> l.put(k, FL.toArrayList(v.stream().filter(t -> t.value2 != null).map(t -> t.value1.replace('_', ' ')))));
+        xl.forEach((k, v) -> l.put(k, FL.toArrayList(v.stream().filter(t -> t.getValue2() != null).map(t -> t.getValue1().replace('_', ' ')))));
         return l;
     }
 

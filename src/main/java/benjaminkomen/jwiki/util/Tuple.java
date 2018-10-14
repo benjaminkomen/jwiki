@@ -1,5 +1,7 @@
 package benjaminkomen.jwiki.util;
 
+import lombok.Getter;
+
 /**
  * Simple implementation of a Tuple. A Tuple is an immutable paired 2-set of values (e.g. (x, y)), and may consist of
  * any two Objects (may be in the same class or a different class).
@@ -8,16 +10,17 @@ package benjaminkomen.jwiki.util;
  * @param <V> The type of Object allowed for the second Object in the tuple.
  * @author Fastily
  */
+@Getter
 public class Tuple<K, V> {
     /**
      * The first value of the tuple
      */
-    public final K value1;
+    private final K value1;
 
     /**
      * The second value of the tuple
      */
-    public final V value2;
+    private final V value2;
 
     /**
      * Creates a Tuple from the parameter values.

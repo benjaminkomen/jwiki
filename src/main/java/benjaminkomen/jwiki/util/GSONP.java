@@ -8,6 +8,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import okhttp3.HttpUrl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -22,6 +24,9 @@ import java.util.stream.Collectors;
  * @author Fastily
  */
 public class GSONP {
+
+    private static final Logger LOG = LoggerFactory.getLogger(GSONP.class);
+
     /**
      * Default json deserializer for Instant objects.
      */
@@ -35,21 +40,33 @@ public class GSONP {
     /**
      * Static JsonParser, for convenience.
      */
-    public static final JsonParser jp = new JsonParser();
+    private static final JsonParser JSON_PARSER = new JsonParser();
 
     /**
      * Default Gson object, for convenience.
      */
-    public static final Gson gson = new GsonBuilder().registerTypeAdapter(Instant.class, instantDeserializer)
+    private static final Gson GSON = new GsonBuilder().registerTypeAdapter(Instant.class, instantDeserializer)
             .registerTypeAdapter(HttpUrl.class, httpurlDeserializer).create();
 
     /**
      * Gson object which generates pretty-print (human-readable) JSON.
      */
-    public static final Gson gsonPP = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON_PRETTY_PRINT = new GsonBuilder().setPrettyPrinting().create();
 
     private GSONP() {
         // no-args constructor
+    }
+
+    public static JsonParser getJsonParser() {
+        return JSON_PARSER;
+    }
+
+    public static Gson getGsonPrettyPrint() {
+        return GSON_PRETTY_PRINT;
+    }
+
+    public static Gson getGson() {
+        return GSON;
     }
 
     /**
@@ -68,11 +85,11 @@ public class GSONP {
      * @param input A JsonArray of JsonObject.
      * @return An ArrayList of JsonObject derived from {@code input}.
      */
-    public static List<JsonObject> getJAofJO(JsonArray input) {
+    public static List<JsonObject> getJsonArrayofJsonObject(JsonArray input) {
         try {
             return FL.toArrayList(FL.streamFrom(input).map(JsonElement::getAsJsonObject));
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Error during json conversion", e);
             return Collections.emptyList();
         }
     }
@@ -86,10 +103,10 @@ public class GSONP {
      * @return An ArrayList of JsonObject derived from {@code input}, or an empty ArrayList if a JsonArray associated
      * with {@code key} could not be found in {@code input}
      */
-    public static List<JsonObject> getJAofJO(JsonObject input, String key) {
+    public static List<JsonObject> getJsonArrayofJsonObject(JsonObject input, String key) {
         JsonArray ja = input.getAsJsonArray(key);
         return ja != null
-                ? getJAofJO(input.getAsJsonArray(key))
+                ? getJsonArrayofJsonObject(input.getAsJsonArray(key))
                 : Collections.emptyList();
     }
 
@@ -103,7 +120,7 @@ public class GSONP {
      */
     public static Map<String, String> pairOff(List<JsonObject> input, String kk, String vk) {
         return new HashMap<>(input.stream()
-                .collect(Collectors.toMap(e -> getStr(e, kk), e -> getStr(e, vk)))
+                .collect(Collectors.toMap(e -> getString(e, kk), e -> getString(e, vk)))
         );
     }
 
@@ -136,16 +153,16 @@ public class GSONP {
      * @return The specified JsonObject or null if it could not be found.
      */
     public static JsonObject getNestedJsonObject(JsonObject inputJsonObject, List<String> keys) {
-        JsonObject jo = inputJsonObject;
+        JsonObject result = inputJsonObject;
 
         try {
             for (String s : keys) {
-                jo = jo.getAsJsonObject(s);
+                result = result.getAsJsonObject(s);
             }
 
-            return jo;
+            return result;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Error during obtaining nested json object.", e);
             return null;
         }
     }
@@ -175,7 +192,7 @@ public class GSONP {
      * @param key             The key to look for
      * @return The value associated with {@code key} as a String, or null if the {@code key} could not be found.
      */
-    public static String getStr(JsonObject inputJsonObject, String key) {
+    public static String getString(JsonObject inputJsonObject, String key) {
         if (!inputJsonObject.has(key)) {
             return null;
         }
@@ -187,12 +204,12 @@ public class GSONP {
     }
 
     /**
-     * Get a JsonArray of String objects as an ArrayList of String objects.
+     * Get a JsonArray of String objects as a List of String objects.
      *
      * @param inputJsonArray The source JsonArray
-     * @return The ArrayList derived from {@code inputJsonArray}
+     * @return The List derived from {@code inputJsonArray}
      */
-    public static List<String> jaOfStrToAL(JsonArray inputJsonArray) {
+    public static List<String> convertJsonArrayToList(JsonArray inputJsonArray) {
         return FL.toArrayList(FL.streamFrom(inputJsonArray)
                 .map(JsonElement::getAsString)
         );

@@ -53,18 +53,18 @@ public class MQueryTests {
         assertTrue(result.containsKey("File:FastilyTestCircle2.svg"));
 
         ImageInfo subResult = result.get("File:FastilyTestCircle1.svg").get(0);
-        assertEquals("Fastily", subResult.user);
-        assertEquals(Instant.parse("2016-03-21T02:12:43Z"), subResult.timestamp);
-        assertEquals(502, subResult.height);
-        assertEquals(512, subResult.width);
-        assertEquals("0bfe3100d0277c0d42553b9d16db71a89cc67ef7", subResult.sha1);
+        assertEquals("Fastily", subResult.getUser());
+        assertEquals(Instant.parse("2016-03-21T02:12:43Z"), subResult.getTimestamp());
+        assertEquals(502, subResult.getHeight());
+        assertEquals(512, subResult.getWidth());
+        assertEquals("0bfe3100d0277c0d42553b9d16db71a89cc67ef7", subResult.getSha1());
 
         subResult = result.get("File:FastilyTestCircle2.svg").get(0);
-        assertEquals("Fastily", subResult.user);
-        assertEquals(Instant.parse("2016-03-21T02:13:15Z"), subResult.timestamp);
-        assertEquals(502, subResult.height);
-        assertEquals(512, subResult.width);
-        assertEquals("bbe1ffbfb03ec9489ffdb3f33596b531c7b222ef", subResult.sha1);
+        assertEquals("Fastily", subResult.getUser());
+        assertEquals(Instant.parse("2016-03-21T02:13:15Z"), subResult.getTimestamp());
+        assertEquals(502, subResult.getHeight());
+        assertEquals(512, subResult.getWidth());
+        assertEquals("bbe1ffbfb03ec9489ffdb3f33596b531c7b222ef", subResult.getSha1());
     }
 
     /**

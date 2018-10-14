@@ -3,11 +3,13 @@ package benjaminkomen.jwiki.core;
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import com.google.gson.JsonObject;
+import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -16,6 +18,7 @@ import java.util.stream.Stream;
  *
  * @author Fastily
  */
+@Getter
 public final class NS {
     /**
      * Main namespace
@@ -99,7 +102,7 @@ public final class NS {
     /**
      * This NS's value.
      */
-    public final int value;
+    private final int value;
 
     /**
      * Constructor
@@ -115,15 +118,15 @@ public final class NS {
      */
     @Override
     public int hashCode() {
-        return value;
+        return Objects.hash(value);
     }
 
     /**
      * Determines if two namespaces are the same namespace
      */
     @Override
-    public boolean equals(Object x) {
-        return x instanceof NS && value == ((NS) x).value;
+    public boolean equals(Object other) {
+        return other instanceof NS && value == ((NS) other).value;
     }
 
     /**
@@ -131,34 +134,35 @@ public final class NS {
      *
      * @author Fastily
      */
+    @Getter
     protected static class NSManager {
         /**
          * The Map of all valid namespace-number pairs.
          */
-        protected final Map<Object, Object> validNamespacesAndNumbers = new HashMap<>();
+        private final Map<Object, Object> validNamespacesAndNumbers = new HashMap<>();
 
         /**
          * The List of valid namespaces as Strings.
          */
-        protected final List<String> validNamespaces = new ArrayList<>();
+        private final List<String> validNamespaces = new ArrayList<>();
 
         /**
          * Regex used to strip the namespace from a title.
          */
-        protected final String nssRegex;
+        private final String nssRegex;
 
         /**
          * Pattern version of <code>nssRegex</code>
          */
-        protected final Pattern pattern;
+        private final Pattern pattern;
 
         /**
          * Constructor, takes a Reply with Namespace data.
          *
-         * @param r A Reply object with a <code>namespaces</code> JSONObject.
+         * @param reply A Reply object with a <code>namespaces</code> JSONObject.
          */
-        protected NSManager(JsonObject r) {
-            for (JsonObject x : GSONP.convertJsonObjectToList(r.getAsJsonObject("namespaces"))) {
+        protected NSManager(JsonObject reply) {
+            for (JsonObject x : GSONP.convertJsonObjectToList(reply.getAsJsonObject("namespaces"))) {
                 String name = x.get("*").getAsString();
                 if (name.isEmpty()) {
                     name = "Main";
@@ -171,7 +175,7 @@ public final class NS {
                 validNamespaces.add(name);
             }
 
-            for (JsonObject x : GSONP.getJAofJO(r.getAsJsonArray("namespacealiases"))) {
+            for (JsonObject x : GSONP.getJsonArrayofJsonObject(reply.getAsJsonArray("namespacealiases"))) {
                 String name = x.get("*").getAsString();
                 validNamespacesAndNumbers.put(name, x.get("id").getAsInt());
                 validNamespaces.add(name);
@@ -184,11 +188,11 @@ public final class NS {
         /**
          * Generates a filter for use with params passed to API. This DOES NOT URLEncode.
          *
-         * @param nsl The namespaces to select.
+         * @param namespaces The namespaces to select.
          * @return The raw filter string.
          */
-        protected String createFilter(NS... nsl) {
-            return FL.pipeFence(FL.toSet(Stream.of(nsl).map(e -> "" + e.value)));
+        protected String createFilter(NS... namespaces) {
+            return FL.pipeFence(FL.toSet(Stream.of(namespaces).map(e -> "" + e.value)));
         }
     }
 }

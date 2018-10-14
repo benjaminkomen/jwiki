@@ -1,6 +1,8 @@
 package benjaminkomen.jwiki.util;
 
 import benjaminkomen.jwiki.core.Wiki;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Console;
 import java.nio.file.Files;
@@ -17,6 +19,9 @@ import java.util.Map;
  * @author Fastily
  */
 public class WGen {
+
+    private static final Logger LOG = LoggerFactory.getLogger(WGen.class);
+
     /**
      * The default filenames to save credentials under.
      */
@@ -81,8 +86,7 @@ public class WGen {
             Files.write(homePX, bytes);
             c.printf("Successfully written out to '%s' and '%s'%n", px, homePX);
         } catch (Exception e) {
-            System.out.println("ERROR: unable to write to output files.  Are you missing write permissions?");
-            e.printStackTrace();
+            LOG.error("ERROR: unable to write to output files.  Are you missing write permissions?", e);
         }
     }
 
@@ -109,7 +113,7 @@ public class WGen {
                     return a[1];
                 }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Error during obtaining password", e);
         }
 
         return null;
@@ -133,7 +137,7 @@ public class WGen {
             cache.put(user, wiki);
             return wiki;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Error during obtaining wiki", e);
             return null;
         }
     }

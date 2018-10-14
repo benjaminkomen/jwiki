@@ -5,15 +5,18 @@ import benjaminkomen.jwiki.dwrap.ImageInfo;
 import benjaminkomen.jwiki.dwrap.LogEntry;
 import benjaminkomen.jwiki.dwrap.PageSection;
 import benjaminkomen.jwiki.dwrap.ProtectedTitleEntry;
-import benjaminkomen.jwiki.dwrap.RCEntry;
+import benjaminkomen.jwiki.dwrap.RecentChangesEntry;
 import benjaminkomen.jwiki.dwrap.Revision;
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import benjaminkomen.jwiki.util.Tuple;
 import com.google.gson.JsonElement;
+import lombok.Getter;
 import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
 import okhttp3.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.Proxy;
 import java.nio.file.Path;
@@ -35,33 +38,39 @@ import java.util.regex.Matcher;
  *
  * @author Fastily
  */
+@Getter
 public class Wiki {
+
+    private static final Logger LOG = LoggerFactory.getLogger(Wiki.class);
+
     /**
      * Our list of currently logged in Wiki's associated with this object. Useful for global operations.
      */
-    private Map<String, Wiki> wl = new HashMap<>();
+    private Map<String, Wiki> wikis = new HashMap<>();
 
     /**
      * Our namespace manager
      */
-    protected NS.NSManager nsl;
+    private NS.NSManager namespaceManager;
 
     /**
      * Default configuration and settings for this Wiki.
      */
-    public final Conf conf;
+    private Conf wikiConfiguration;
 
     /**
      * Used to make calls to and from the API.
      */
-    protected final ApiClient apiclient;
+    private final ApiClient apiclient;
+    private static final String VAR_TITLE = "title";
+    private static final String VAR_NEWER = "newer";
 
     /**
      * Constructor, configures all possible params. If the username and password are set but not valid then a
      * SecurityException will be thrown.
      *
      * @param user          The username to use. Optional - set null to disable.
-     * @param px            The password to login with. Optional - depends on user not being null, set null to disable.
+     * @param password      The password to login with. Optional - depends on user not being null, set null to disable.
      * @param baseURL       The URL pointing to the target MediaWiki API endpoint.
      * @param proxy         The Proxy to use. Optional - set null to disable.
      * @param interceptor   An OkHttp interceptor, useful for pre/post flight modifications. Optional - set null to
@@ -70,54 +79,54 @@ public class Wiki {
      *                      with null.
      * @param enableLogging Set true to enable std err log messages. Set false to disable std err log messages.
      */
-    private Wiki(String user, String px, HttpUrl baseURL, Proxy proxy, Interceptor interceptor, Wiki parent, boolean enableLogging) {
-        conf = new Conf(baseURL, new ColorLog(enableLogging));
+    private Wiki(String user, String password, HttpUrl baseURL, Proxy proxy, Interceptor interceptor, Wiki parent, boolean enableLogging) {
+        wikiConfiguration = new Conf(baseURL, new ColorLog(enableLogging));
 
         // CentralAuth login
         if (parent != null) {
-            wl = parent.wl;
+            wikis = parent.wikis;
             apiclient = new ApiClient(parent, this);
 
             refreshLoginStatus();
         } else {
             apiclient = new ApiClient(this, proxy, interceptor);
 
-            if (user != null && px != null && !login(user, px))
-                throw new SecurityException(String.format("Failed to log-in as %s @ %s", conf.uname, conf.hostname));
+            if (user != null && password != null && !login(user, password))
+                throw new SecurityException(String.format("Failed to log-in as %s @ %s", wikiConfiguration.getUname(), wikiConfiguration.getHostname()));
         }
 
-        conf.log.info(this, "Fetching Namespace List");
-        nsl = new NS.NSManager(new WQuery(this, WQuery.NAMESPACES).next().input.getAsJsonObject("query"));
+        wikiConfiguration.getLog().info(this, "Fetching Namespace List");
+        namespaceManager = new NS.NSManager(new WQuery(this, WQuery.NAMESPACES).next().getInput().getAsJsonObject("query"));
     }
 
     /**
      * Constructor, creates a Wiki with the specified domain and other optional parameters.
      *
      * @param user          The username to use. Optional - set null to disable.
-     * @param px            The password to login with. Optional - depends on user not bei
+     * @param password      The password to login with. Optional - depends on user not bei
      * @param domain        The domain name. Use shorthand form, ex: {@code en.wikipedia.org}.
      * @param proxy         The Proxy to use. Optional - set null to disable.
      * @param interceptor   An OkHttp interceptor, useful for pre/post flight modifications. Optional - set null to
      *                      disable.
      * @param enableLogging Set true to enable std err log messages. Set false to disable std err log messages.
      */
-    private Wiki(String user, String px, String domain, Proxy proxy, Interceptor interceptor, boolean enableLogging) {
-        this(user, px, HttpUrl.parse(String.format("https://%s/w/api.php", domain)), proxy, interceptor, null, enableLogging);
+    private Wiki(String user, String password, String domain, Proxy proxy, Interceptor interceptor, boolean enableLogging) {
+        this(user, password, HttpUrl.parse(String.format("https://%s/w/api.php", domain)), proxy, interceptor, null, enableLogging);
     }
 
     /**
      * Constructor, creates an anonymous Wiki with the specified API endpoint, proxy, and/or interceptor.
      *
      * @param user          The username to use. Optional - set null to disable.
-     * @param px            The password to use. Optional - set null to disable. CAVEAT: ignored if user is null.
+     * @param password      The password to use. Optional - set null to disable. CAVEAT: ignored if user is null.
      * @param baseURL       The URL pointing to the target MediaWiki API endpoint.
      * @param proxy         The Proxy to use. Optional - set null to disable.
      * @param interceptor   An OkHttp interceptor, useful for pre/post flight modifications. Optional - set null to
      *                      disable.
      * @param enableLogging Set true to enable std err log messages. Set false to disable std err log messages.
      */
-    public Wiki(String user, String px, HttpUrl baseURL, Proxy proxy, Interceptor interceptor, boolean enableLogging) {
-        this(user, px, baseURL, proxy, interceptor, null, enableLogging);
+    public Wiki(String user, String password, HttpUrl baseURL, Proxy proxy, Interceptor interceptor, boolean enableLogging) {
+        this(user, password, baseURL, proxy, interceptor, null, enableLogging);
     }
 
     /**
@@ -138,12 +147,12 @@ public class Wiki {
      * you are targeting is located at {@code https://<WIKI_DOMAIN>/w/api.php}. If this is not the case, then please use
      * {@link #Wiki(String, String, HttpUrl, Proxy, Interceptor, boolean)}.
      *
-     * @param user   The username to use
-     * @param px     The password to use
-     * @param domain The domain name. Use shorthand form, ex: {@code en.wikipedia.org}.
+     * @param user     The username to use
+     * @param password The password to use
+     * @param domain   The domain name. Use shorthand form, ex: {@code en.wikipedia.org}.
      */
-    public Wiki(String user, String px, String domain) {
-        this(user, px, domain, null, null, true);
+    public Wiki(String user, String password, String domain) {
+        this(user, password, domain, null, null, true);
     }
 
     /**
@@ -173,21 +182,21 @@ public class Wiki {
      */
     public synchronized boolean login(String user, String password) {
         // do not login more than once
-        if (conf.uname != null) {
+        if (wikiConfiguration.getUname() != null) {
             return true;
         }
 
-        conf.log.info(this, "Try login for " + user);
+        wikiConfiguration.getLog().info(this, "Try login for " + user);
         try {
             if (WAction.postAction(this, "login", false, FL.produceMap("lgname", user, "lgpassword", password, "lgtoken",
                     getTokens(WQuery.TOKENS_LOGIN, "logintoken"))) == WAction.ActionResult.SUCCESS) {
                 refreshLoginStatus();
 
-                conf.log.info(this, "Logged in as " + user);
+                wikiConfiguration.getLog().info(this, "Logged in as " + user);
                 return true;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during login", e);
         }
 
         return false;
@@ -197,11 +206,22 @@ public class Wiki {
      * Refresh the login status of a Wiki. This runs automatically on login or creation of a new CentralAuth'd Wiki.
      */
     public void refreshLoginStatus() {
-        conf.uname = GSONP.getStr(new WQuery(this, WQuery.USERINFO).next().metaComp("userinfo").getAsJsonObject(), "name");
-        conf.token = getTokens(WQuery.TOKENS_CSRF, "csrftoken");
-        wl.put(conf.hostname, this);
+        wikiConfiguration = Conf.builder()
+                .debug(wikiConfiguration.isDebug())
+                .userAgent(wikiConfiguration.getUserAgent())
+                .baseURL(wikiConfiguration.getBaseURL())
+                .scptPath(wikiConfiguration.getScptPath())
+                .isBot(wikiConfiguration.isBot())
+                .hostname(wikiConfiguration.getHostname())
+                .maxResultLimit(wikiConfiguration.getMaxResultLimit())
+                .uname(GSONP.getString(new WQuery(this, WQuery.USERINFO).next().metaComp("userinfo").getAsJsonObject(), "name"))
+                .log(wikiConfiguration.getLog())
+                .token(getTokens(WQuery.TOKENS_CSRF, "csrftoken"))
+                .build();
 
-        conf.isBot = listUserRights(conf.uname).contains("bot");
+        wikis.put(wikiConfiguration.getHostname(), this);
+
+        wikiConfiguration.setBot(listUserRights(wikiConfiguration.getUname()).contains("bot"));
     }
 
     /**
@@ -213,9 +233,9 @@ public class Wiki {
      */
     private String getTokens(WQuery.QTemplate wqt, String tk) {
         try {
-            return GSONP.getStr(new WQuery(this, wqt).next().metaComp("tokens").getAsJsonObject(), tk);
+            return GSONP.getString(new WQuery(this, wqt).next().metaComp("tokens").getAsJsonObject(), tk);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during obtaining tokens", e);
             return null;
         }
     }
@@ -241,7 +261,7 @@ public class Wiki {
         try {
             return apiclient.basicGET(pl);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during basic GET operation", e);
             return null;
         }
     }
@@ -259,7 +279,7 @@ public class Wiki {
         try {
             return apiclient.basicPOST(FL.produceMap("action", action), form);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during basic POST operation", e);
             return null;
         }
     }
@@ -272,7 +292,7 @@ public class Wiki {
      * @return The same title if it is in {@code ns}, or the converted title.
      */
     public String convertIfNotInNS(String title, NS ns) {
-        return whichNS(title).equals(ns) ? title : String.format("%s:%s", nsl.validNamespacesAndNumbers.get(ns.value), nss(title));
+        return whichNS(title).equals(ns) ? title : String.format("%s:%s", namespaceManager.getValidNamespacesAndNumbers().get(ns.getValue()), nss(title));
     }
 
     /**
@@ -281,7 +301,7 @@ public class Wiki {
      * @param enabled Set false to disable logging, or true to enable logging.
      */
     public void enableLogging(boolean enabled) {
-        conf.log.enabled = enabled;
+        wikiConfiguration.getLog().setEnabled(enabled);
     }
 
     /**
@@ -309,8 +329,8 @@ public class Wiki {
             return NS.MAIN;
         }
 
-        return nsl.validNamespacesAndNumbers.containsKey(prefix)
-                ? new NS((int) nsl.validNamespacesAndNumbers.get(prefix))
+        return namespaceManager.getValidNamespacesAndNumbers().containsKey(prefix)
+                ? new NS((int) namespaceManager.getValidNamespacesAndNumbers().get(prefix))
                 : null;
     }
 
@@ -323,17 +343,17 @@ public class Wiki {
      * @return The Wiki, or null on error.
      */
     public synchronized Wiki getWiki(String domain) {
-        if (conf.uname == null) {
+        if (wikiConfiguration.getUname() == null) {
             return null;
         }
 
-        conf.log.fyi(this, String.format("Get Wiki for %s @ %s", whoami(), domain));
+        wikiConfiguration.getLog().fyi(this, String.format("Get Wiki for %s @ %s", whoami(), domain));
         try {
-            return wl.containsKey(domain)
-                    ? wl.get(domain)
-                    : new Wiki(null, null, conf.baseURL.newBuilder().host(domain).build(), null, null, this, conf.log.enabled);
+            return wikis.containsKey(domain)
+                    ? wikis.get(domain)
+                    : new Wiki(null, null, wikiConfiguration.getBaseURL().newBuilder().host(domain).build(), null, null, this, wikiConfiguration.getLog().isEnabled());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during obtaining wiki", e);
             return null;
         }
     }
@@ -345,7 +365,7 @@ public class Wiki {
      * @return The title without a namespace
      */
     public String nss(String title) {
-        return title.replaceAll(nsl.nssRegex, "");
+        return title.replaceAll(namespaceManager.getNssRegex(), "");
     }
 
     /**
@@ -365,10 +385,10 @@ public class Wiki {
      * @return The talk page of {@code title}, or null if {@code title} is a special page or is already a talk page.
      */
     public String talkPageOf(String title) {
-        int i = whichNS(title).value;
+        int i = whichNS(title).getValue();
         return i < 0 || i % 2 == 1
                 ? null
-                : nsl.validNamespacesAndNumbers.get(i + 1) + ":" + nss(title);
+                : namespaceManager.getValidNamespacesAndNumbers().get(i + 1) + ":" + nss(title);
     }
 
     /**
@@ -381,13 +401,13 @@ public class Wiki {
     public String talkPageBelongsTo(String title) {
         NS ns = whichNS(title);
 
-        if (ns.value < 0 || ns.value % 2 == 0) {
+        if (ns.getValue() < 0 || ns.getValue() % 2 == 0) {
             return null;
         } else if (ns.equals(NS.TALK)) {
             return nss(title);
         }
 
-        return nsl.validNamespacesAndNumbers.get(ns.value - 1) + ":" + nss(title);
+        return namespaceManager.getValidNamespacesAndNumbers().get(ns.getValue() - 1) + ":" + nss(title);
     }
 
     /**
@@ -397,10 +417,10 @@ public class Wiki {
      * @return The title's NS.
      */
     public NS whichNS(String title) {
-        Matcher m = nsl.pattern.matcher(title);
+        Matcher m = namespaceManager.getPattern().matcher(title);
         return !m.find()
                 ? NS.MAIN
-                : new NS((int) nsl.validNamespacesAndNumbers.get(title.substring(m.start(), m.end() - 1)));
+                : new NS((int) namespaceManager.getValidNamespacesAndNumbers().get(title.substring(m.start(), m.end() - 1)));
     }
 
     /**
@@ -409,14 +429,14 @@ public class Wiki {
      * @return The user who is logged in, or null if not logged in.
      */
     public String whoami() {
-        return conf.uname == null ? "<Anonymous>" : conf.uname;
+        return wikiConfiguration.getUname() == null ? "<Anonymous>" : wikiConfiguration.getUname();
     }
 
     /**
      * Gets a String representation of this Wiki, in the format {@code [username @ domain]}
      */
     public String toString() {
-        return String.format("[%s @ %s]", whoami(), conf.hostname);
+        return String.format("[%s @ %s]", whoami(), wikiConfiguration.getHostname());
     }
 
     /* //////////////////////////////////////////////////////////////////////////////// */
@@ -535,19 +555,19 @@ public class Wiki {
      * @param redirectsOnly Set true to get redirects only.
      * @param protectedOnly Set true to get protected pages only.
      * @param cap           The max number of titles to return. Optional param - set {@code -1} to get all pages.
-     * @param ns            The namespace to filter by. Optional param - set null to disable
+     * @param namespace     The namespace to filter by. Optional param - set null to disable
      * @return A list of titles on this Wiki, as specified.
      */
-    public List<String> allPages(String prefix, boolean redirectsOnly, boolean protectedOnly, int cap, NS ns) {
-        conf.log.info(this, "Doing all pages fetch for " + (prefix == null ? "all pages" : prefix));
+    public List<String> allPages(String prefix, boolean redirectsOnly, boolean protectedOnly, int cap, NS namespace) {
+        wikiConfiguration.getLog().info(this, "Doing all pages fetch for " + (prefix == null ? "all pages" : prefix));
 
         WQuery wq = new WQuery(this, cap, WQuery.ALLPAGES);
         if (prefix != null) {
             wq.set("apprefix", prefix);
         }
 
-        if (ns != null) {
-            wq.set("apnamespace", "" + ns.value);
+        if (namespace != null) {
+            wq.set("apnamespace", "" + namespace.getValue());
         }
 
         if (redirectsOnly) {
@@ -561,7 +581,7 @@ public class Wiki {
         List<String> l = new ArrayList<>();
         while (wq.has()) {
             l.addAll(FL.toArrayList(wq.next().listComp("allpages").stream()
-                    .map(jo -> GSONP.getStr(jo, "title"))
+                    .map(jo -> GSONP.getString(jo, VAR_TITLE))
             ));
         }
 
@@ -575,7 +595,7 @@ public class Wiki {
      * @return True if the title exists.
      */
     public boolean exists(String title) {
-        conf.log.info(this, "Checking to see if title exists: " + title);
+        wikiConfiguration.getLog().info(this, "Checking to see if title exists: " + title);
         return MQuery.exists(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -587,7 +607,7 @@ public class Wiki {
      * @return A list of pages linking to the file.
      */
     public List<String> fileUsage(String title) {
-        conf.log.info(this, "Fetching local file usage of " + title);
+        wikiConfiguration.getLog().info(this, "Fetching local file usage of " + title);
         return MQuery.fileUsage(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -598,10 +618,10 @@ public class Wiki {
      * @return A list of file extensions for files which can be uploaded to this Wiki.
      */
     public List<String> getAllowedFileExts() {
-        conf.log.info(this, "Fetching a list of permissible file extensions");
+        wikiConfiguration.getLog().info(this, "Fetching a list of permissible file extensions");
         return FL
                 .toArrayList(new WQuery(this, WQuery.ALLOWEDFILEXTS).next().listComp("fileextensions").stream()
-                        .map(e -> GSONP.getStr(e, "ext")));
+                        .map(e -> GSONP.getString(e, "ext")));
     }
 
     /**
@@ -611,7 +631,7 @@ public class Wiki {
      * @return A list of categories, or the empty list if something went wrong.
      */
     public List<String> getCategoriesOnPage(String title) {
-        conf.log.info(this, "Getting categories of " + title);
+        wikiConfiguration.getLog().info(this, "Getting categories of " + title);
         return MQuery.getCategoriesOnPage(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -637,16 +657,16 @@ public class Wiki {
      * @return The list of titles, as specified, in the category.
      */
     public List<String> getCategoryMembers(String title, int cap, NS... ns) {
-        conf.log.info(this, "Getting category members from " + title);
+        wikiConfiguration.getLog().info(this, "Getting category members from " + title);
 
         WQuery wq = new WQuery(this, cap, WQuery.CATEGORYMEMBERS).set("cmtitle", convertIfNotInNS(title, NS.CATEGORY));
         if (ns.length > 0) {
-            wq.set("cmnamespace", nsl.createFilter(ns));
+            wq.set("cmnamespace", namespaceManager.createFilter(ns));
         }
 
         List<String> l = new ArrayList<>();
         while (wq.has()) {
-            l.addAll(FL.toArrayList(wq.next().listComp("categorymembers").stream().map(e -> GSONP.getStr(e, "title"))));
+            l.addAll(FL.toArrayList(wq.next().listComp("categorymembers").stream().map(e -> GSONP.getString(e, VAR_TITLE))));
         }
 
         return l;
@@ -660,7 +680,7 @@ public class Wiki {
      * non-existent.
      */
     public int getCategorySize(String title) {
-        conf.log.info(this, "Getting category size of " + title);
+        wikiConfiguration.getLog().info(this, "Getting category size of " + title);
         return MQuery.getCategorySize(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -675,21 +695,21 @@ public class Wiki {
      * @return A list of contributions.
      */
     public List<Contrib> getContribs(String user, int cap, boolean olderFirst, NS... ns) {
-        conf.log.info(this, "Fetching contribs of " + user);
+        wikiConfiguration.getLog().info(this, "Fetching contribs of " + user);
 
         WQuery wq = new WQuery(this, cap, WQuery.USERCONTRIBS).set("ucuser", user);
         if (ns.length > 0) {
-            wq.set("ucnamespace", nsl.createFilter(ns));
+            wq.set("ucnamespace", namespaceManager.createFilter(ns));
         }
 
         if (olderFirst) {
-            wq.set("ucdir", "newer");
+            wq.set("ucdir", VAR_NEWER);
         }
 
         List<Contrib> result = new ArrayList<>();
         while (wq.has()) {
             result.addAll(FL.toArrayList(wq.next().listComp("usercontribs").stream()
-                    .map(jo -> GSONP.gson.fromJson(jo, Contrib.class))
+                    .map(jo -> GSONP.getGson().fromJson(jo, Contrib.class))
             ));
         }
 
@@ -704,7 +724,7 @@ public class Wiki {
      * @return Duplicates of this file.
      */
     public List<String> getDuplicatesOf(String title, boolean localOnly) {
-        conf.log.info(this, "Getting duplicates of " + title);
+        wikiConfiguration.getLog().info(this, "Getting duplicates of " + title);
         return MQuery.getDuplicatesOf(this, localOnly, FL.toStringArrayList(title)).get(title);
     }
 
@@ -715,7 +735,7 @@ public class Wiki {
      * @return A List of external links found on the page.
      */
     public List<String> getExternalLinks(String title) {
-        conf.log.info(this, "Getting external links on " + title);
+        wikiConfiguration.getLog().info(this, "Getting external links on " + title);
         return MQuery.getExternalLinks(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -726,7 +746,7 @@ public class Wiki {
      * @return A list of ImageInfo objects, one for each revision. The order is newer -&gt; older.
      */
     public List<ImageInfo> getImageInfo(String title) {
-        conf.log.info(this, "Getting image info for " + title);
+        wikiConfiguration.getLog().info(this, "Getting image info for " + title);
         return MQuery.getImageInfo(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -737,7 +757,7 @@ public class Wiki {
      * @return The images found on <code>title</code>
      */
     public List<String> getImagesOnPage(String title) {
-        conf.log.info(this, "Getting files on " + title);
+        wikiConfiguration.getLog().info(this, "Getting files on " + title);
         return MQuery.getImagesOnPage(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -749,9 +769,9 @@ public class Wiki {
      */
     public String getLastEditor(String title) {
         try {
-            return getRevisions(title, 1, false, null, null).get(0).user;
+            return getRevisions(title, 1, false, null, null).get(0).getUser();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during obtaining last editor", e);
             return null;
         }
     }
@@ -764,7 +784,7 @@ public class Wiki {
      * @return The list of wiki links on the page.
      */
     public List<String> getLinksOnPage(String title, NS... ns) {
-        conf.log.info(this, "Getting wiki links on " + title);
+        wikiConfiguration.getLog().info(this, "Getting wiki links on " + title);
         return MQuery.getLinksOnPage(this, FL.toStringArrayList(title), ns).get(title);
     }
 
@@ -791,7 +811,7 @@ public class Wiki {
      * @return The log entries.
      */
     public List<LogEntry> getLogs(String title, String user, String type, int cap) {
-        conf.log.info(this, String.format("Fetching log entries -> title: %s, user: %s, type: %s", title, user, type));
+        wikiConfiguration.getLog().info(this, String.format("Fetching log entries -> title: %s, user: %s, type: %s", title, user, type));
 
         WQuery wq = new WQuery(this, cap, WQuery.LOGEVENTS);
         if (title != null) {
@@ -809,7 +829,7 @@ public class Wiki {
         List<LogEntry> result = new ArrayList<>();
         while (wq.has()) {
             result.addAll(FL.toArrayList(wq.next().listComp("logevents").stream()
-                    .map(jo -> GSONP.gson.fromJson(jo, LogEntry.class))));
+                    .map(jo -> GSONP.getGson().fromJson(jo, LogEntry.class))));
         }
 
         return result;
@@ -823,9 +843,9 @@ public class Wiki {
      */
     public String getPageCreator(String title) {
         try {
-            return getRevisions(title, 1, true, null, null).get(0).user;
+            return getRevisions(title, 1, true, null, null).get(0).getUser();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during obtaining page creator", e);
             return null;
         }
     }
@@ -837,7 +857,7 @@ public class Wiki {
      * @return The text of the page, or an empty string if the page is non-existent/something went wrong.
      */
     public String getPageText(String title) {
-        conf.log.info(this, "Getting page text of " + title);
+        wikiConfiguration.getLog().info(this, "Getting page text of " + title);
         return MQuery.getPageText(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -850,22 +870,22 @@ public class Wiki {
      * @return An ArrayList of protected titles.
      */
     public List<ProtectedTitleEntry> getProtectedTitles(int limit, boolean olderFirst, NS... ns) {
-        conf.log.info(this, "Fetching a list of protected titles");
+        wikiConfiguration.getLog().info(this, "Fetching a list of protected titles");
 
         WQuery wq = new WQuery(this, limit, WQuery.PROTECTEDTITLES);
         if (ns.length > 0) {
-            wq.set("ptnamespace", nsl.createFilter(ns));
+            wq.set("ptnamespace", namespaceManager.createFilter(ns));
         }
 
         if (olderFirst) {
-            wq.set("ptdir", "newer"); // MediaWiki is weird.
+            wq.set("ptdir", VAR_NEWER); // MediaWiki is weird.
         }
 
         List<ProtectedTitleEntry> result = new ArrayList<>();
         while (wq.has()) {
             result.addAll(
                     FL.toArrayList(wq.next().listComp("protectedtitles").stream()
-                            .map(jo -> GSONP.gson.fromJson(jo, ProtectedTitleEntry.class))
+                            .map(jo -> GSONP.getGson().fromJson(jo, ProtectedTitleEntry.class))
                     ));
         }
 
@@ -880,7 +900,7 @@ public class Wiki {
      * @return A list of random titles on this Wiki.
      */
     public List<String> getRandomPages(int limit, NS... ns) {
-        conf.log.info(this, "Fetching random page(s)");
+        wikiConfiguration.getLog().info(this, "Fetching random page(s)");
 
         if (limit < 0) {
             throw new IllegalArgumentException("limit for getRandomPages() cannot be a negative number");
@@ -890,12 +910,12 @@ public class Wiki {
         WQuery wq = new WQuery(this, limit, WQuery.RANDOM);
 
         if (ns.length > 0) {
-            wq.set("rnnamespace", nsl.createFilter(ns));
+            wq.set("rnnamespace", namespaceManager.createFilter(ns));
         }
 
         while (wq.has()) {
             result.addAll(FL.toArrayList(wq.next().listComp("random").stream()
-                    .map(e -> GSONP.getStr(e, "title"))));
+                    .map(e -> GSONP.getString(e, VAR_TITLE))));
         }
 
         return result;
@@ -912,27 +932,28 @@ public class Wiki {
      *              param - set null to disable.
      * @return A list Recent Changes where return order is newer -&gt; Older
      */
-    public List<RCEntry> getRecentChanges(Instant start, Instant end) {
-        conf.log.info(this, "Querying recent changes");
+    public List<RecentChangesEntry> getRecentChanges(Instant start, Instant end) {
+        wikiConfiguration.getLog().info(this, "Querying recent changes");
 
-        Instant s = start, e = end;
-        if (s == null) {
-            e = Instant.now();
-            s = e.minusSeconds(30);
-        } else if (e != null && e.isBefore(s)) {
-            // implied s != null
+        Instant startInstance = start;
+        Instant endInstance = end;
+        if (startInstance == null) {
+            endInstance = Instant.now();
+            startInstance = endInstance.minusSeconds(30);
+        } else if (endInstance != null && endInstance.isBefore(startInstance)) {
+            // implied startInstance != null
             throw new IllegalArgumentException("start is before end, cannot proceed");
         }
 
         // MediaWiki has start <-> end backwards
-        WQuery wq = new WQuery(this, WQuery.RECENTCHANGES).set("rcend", s.toString());
-        if (e != null) {
-            wq.set("rcstart", e.toString());
+        WQuery wq = new WQuery(this, WQuery.RECENTCHANGES).set("rcend", startInstance.toString());
+        if (endInstance != null) {
+            wq.set("rcstart", endInstance.toString());
         }
 
-        List<RCEntry> result = new ArrayList<>();
+        List<RecentChangesEntry> result = new ArrayList<>();
         while (wq.has()) {
-            result.addAll(FL.toArrayList(wq.next().listComp("recentchanges").stream().map(jo -> GSONP.gson.fromJson(jo, RCEntry.class))));
+            result.addAll(FL.toArrayList(wq.next().listComp("recentchanges").stream().map(jo -> GSONP.getGson().fromJson(jo, RecentChangesEntry.class))));
         }
 
         return result;
@@ -950,11 +971,11 @@ public class Wiki {
      * @return A list of page revisions
      */
     public List<Revision> getRevisions(String title, int cap, boolean olderFirst, Instant start, Instant end) {
-        conf.log.info(this, "Getting revisions from " + title);
+        wikiConfiguration.getLog().info(this, "Getting revisions from " + title);
 
         WQuery wq = new WQuery(this, cap, WQuery.REVISIONS).set("titles", title);
         if (olderFirst) {
-            wq.set("rvdir", "newer"); // MediaWiki is weird.
+            wq.set("rvdir", VAR_NEWER); // MediaWiki is weird.
         }
 
         if (start != null && end != null && start.isBefore(end)) {
@@ -964,10 +985,10 @@ public class Wiki {
 
         List<Revision> result = new ArrayList<>();
         while (wq.has()) {
-            JsonElement e = wq.next().propComp("title", "revisions").get(title);
+            JsonElement e = wq.next().propComp(VAR_TITLE, "revisions").get(title);
             if (e != null) {
-                result.addAll(FL.toArrayList(GSONP.getJAofJO(e.getAsJsonArray()).stream()
-                        .map(jo -> GSONP.gson.fromJson(jo, Revision.class))));
+                result.addAll(FL.toArrayList(GSONP.getJsonArrayofJsonObject(e.getAsJsonArray()).stream()
+                        .map(jo -> GSONP.getGson().fromJson(jo, Revision.class))));
             }
         }
         return result;
@@ -982,7 +1003,7 @@ public class Wiki {
      * @return An ArrayList containing shared duplicates of the file
      */
     public List<String> getSharedDuplicatesOf(String title) {
-        conf.log.info(this, "Getting shared duplicates of " + title);
+        wikiConfiguration.getLog().info(this, "Getting shared duplicates of " + title);
         return MQuery.getSharedDuplicatesOf(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -993,7 +1014,7 @@ public class Wiki {
      * @return The templates transcluded on <code>title</code>
      */
     public List<String> getTemplatesOnPage(String title) {
-        conf.log.info(this, "Getting templates transcluded on " + title);
+        wikiConfiguration.getLog().info(this, "Getting templates transcluded on " + title);
         return MQuery.getTemplatesOnPage(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -1004,7 +1025,7 @@ public class Wiki {
      * @return The text extract. Null if {@code title} does not exist or is a special page.
      */
     public String getTextExtract(String title) {
-        conf.log.info(this, "Getting a text extract for " + title);
+        wikiConfiguration.getLog().info(this, "Getting a text extract for " + title);
         return MQuery.getTextExtracts(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -1015,13 +1036,13 @@ public class Wiki {
      * @return This user's uploads
      */
     public List<String> getUserUploads(String user) {
-        conf.log.info(this, "Fetching uploads for " + user);
+        wikiConfiguration.getLog().info(this, "Fetching uploads for " + user);
 
         List<String> result = new ArrayList<>();
         WQuery wq = new WQuery(this, WQuery.USERUPLOADS).set("aiuser", nss(user));
         while (wq.has()) {
             result.addAll(FL.toArrayList(wq.next().listComp("allimages").stream()
-                    .map(e -> GSONP.getStr(e, "title"))
+                    .map(e -> GSONP.getString(e, VAR_TITLE))
             ));
         }
 
@@ -1035,7 +1056,7 @@ public class Wiki {
      * @return A HashMap with the global usage of this file; each element is of the form <code>[ title : wiki ]</code>.
      */
     public List<Tuple<String, String>> globalUsage(String title) {
-        conf.log.info(this, "Getting global usage for " + title);
+        wikiConfiguration.getLog().info(this, "Getting global usage for " + title);
         return MQuery.globalUsage(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -1046,7 +1067,7 @@ public class Wiki {
      * @return The usergroups {@code user} belongs to.
      */
     public List<String> listUserRights(String user) {
-        conf.log.info(this, "Getting user rights for " + user);
+        wikiConfiguration.getLog().info(this, "Getting user rights for " + user);
         return MQuery.listUserRights(this, FL.toStringArrayList(user)).get(user);
     }
 
@@ -1059,7 +1080,7 @@ public class Wiki {
      * @return The list of titles starting with the specified prefix
      */
     public List<String> prefixIndex(NS namespace, String prefix) {
-        conf.log.info(this, "Doing prefix index search for " + prefix);
+        wikiConfiguration.getLog().info(this, "Doing prefix index search for " + prefix);
         return allPages(prefix, false, false, -1, namespace);
     }
 
@@ -1075,17 +1096,17 @@ public class Wiki {
      * @return A List of titles returned by this special page.
      */
     public List<String> querySpecialPage(String title, int cap) {
-        conf.log.info(this, "Querying special page " + title);
+        wikiConfiguration.getLog().info(this, "Querying special page " + title);
 
         WQuery wq = new WQuery(this, cap, WQuery.QUERYPAGES).set("qppage", nss(title));
         List<String> result = new ArrayList<>();
 
         while (wq.has()) {
             try {
-                result.addAll(FL.toArrayList(FL.streamFrom(GSONP.getNestedJsonArray(wq.next().input, FL.toStringArrayList("query", "querypage", "results")))
-                        .map(e -> GSONP.getStr(e.getAsJsonObject(), "title"))));
+                result.addAll(FL.toArrayList(FL.streamFrom(GSONP.getNestedJsonArray(wq.next().getInput(), FL.toStringArrayList("query", "querypage", "results")))
+                        .map(e -> GSONP.getString(e.getAsJsonObject(), VAR_TITLE))));
             } catch (Exception e) {
-                e.printStackTrace();
+                LOG.error("Exception during obtaining special page", e);
             }
         }
         return result;
@@ -1098,7 +1119,7 @@ public class Wiki {
      * @return The resolved title, or the original title if it was not a redirect.
      */
     public String resolveRedirect(String title) {
-        conf.log.info(this, "Resolving redirect for " + title);
+        wikiConfiguration.getLog().info(this, "Resolving redirect for " + title);
         return MQuery.resolveRedirects(this, FL.toStringArrayList(title)).get(title);
     }
 
@@ -1109,14 +1130,14 @@ public class Wiki {
      * @return An ArrayList where each section (in order) is contained in a PageSection object.
      */
     public List<PageSection> splitPageByHeader(String title) {
-        conf.log.info(this, "Splitting " + title + " by header");
+        wikiConfiguration.getLog().info(this, "Splitting " + title + " by header");
 
         try {
-            return PageSection.pageBySection(GSONP.getJAofJO(GSONP.getNestedJsonArray(
-                    GSONP.jp.parse(basicGET("parse", "prop", "sections", "page", title).body().string()).getAsJsonObject(),
+            return PageSection.pageBySection(GSONP.getJsonArrayofJsonObject(GSONP.getNestedJsonArray(
+                    GSONP.getJsonParser().parse(basicGET("parse", "prop", "sections", "page", title).body().string()).getAsJsonObject(),
                     FL.toStringArrayList("parse", "sections"))), getPageText(title));
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Exception during obtaining page sections", e);
             return Collections.emptyList();
         }
     }
@@ -1129,7 +1150,7 @@ public class Wiki {
      * @return A list of links or redirects to this page.
      */
     public List<String> whatLinksHere(String title, boolean redirects) {
-        conf.log.info(this, "Getting links to " + title);
+        wikiConfiguration.getLog().info(this, "Getting links to " + title);
         return MQuery.linksHere(this, redirects, FL.toStringArrayList(title)).get(title);
     }
 
@@ -1154,7 +1175,7 @@ public class Wiki {
      * @return The pages transcluding <code>title</code>.
      */
     public List<String> whatTranscludesHere(String title, NS... ns) {
-        conf.log.info(this, "Getting list of pages that transclude " + title);
+        wikiConfiguration.getLog().info(this, "Getting list of pages that transclude " + title);
         return MQuery.transcludesIn(this, FL.toStringArrayList(title), ns).get(title);
     }
 }

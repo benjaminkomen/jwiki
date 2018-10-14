@@ -36,7 +36,7 @@ class ApiClient {
     /**
      * HTTP client used for all requests.
      */
-    protected final OkHttpClient client;
+    private final OkHttpClient client;
 
     /**
      * The Wiki object tied to this ApiClient.
@@ -73,18 +73,18 @@ class ApiClient {
      */
     protected ApiClient(Wiki from, Wiki to) {
         wiki = to;
-        client = from.apiclient.client;
+        client = from.getApiclient().client;
 
         JwikiCookieJar cl = (JwikiCookieJar) client.cookieJar();
 
         Map<String, String> l = new HashMap<>();
-        cl.cj.get(from.conf.hostname).forEach((k, v) -> {
+        cl.cj.get(from.getWikiConfiguration().getHostname()).forEach((k, v) -> {
             if (k.contains("centralauth")) {
                 l.put(k, v);
             }
         });
 
-        cl.cj.put(wiki.conf.hostname, l);
+        cl.cj.put(wiki.getWikiConfiguration().getHostname(), l);
     }
 
     /**
@@ -94,10 +94,10 @@ class ApiClient {
      * @return A new Request.Builder with default values needed to hit MediaWiki API endpoints.
      */
     private Request.Builder startReq(Map<String, String> params) {
-        HttpUrl.Builder hb = wiki.conf.baseURL.newBuilder();
+        HttpUrl.Builder hb = wiki.getWikiConfiguration().getBaseURL().newBuilder();
         params.forEach(hb::addQueryParameter);
 
-        return new Request.Builder().url(hb.build()).header("User-Agent", wiki.conf.userAgent);
+        return new Request.Builder().url(hb.build()).header("User-Agent", wiki.getWikiConfiguration().getUserAgent());
     }
 
     /**
