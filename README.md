@@ -1,5 +1,6 @@
 # jwiki
 [![Build Status](https://www.travis-ci.com/benjaminkomen/jwiki.svg?branch=master)](https://www.travis-ci.com/benjaminkomen/jwiki)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=benjaminkomen%3Ajwiki&metric=alert_status)](https://sonarcloud.io/dashboard?id=benjaminkomen%3Ajwiki)
 ![JDK-1.8+](https://upload.wikimedia.org/wikipedia/commons/7/75/Blue_JDK_1.8%2B_Shield_Badge.svg)
 [![License: GPL v3](https://upload.wikimedia.org/wikipedia/commons/8/86/GPL_v3_Blue_Badge.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
