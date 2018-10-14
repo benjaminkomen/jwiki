@@ -6,12 +6,12 @@ plugins {
     id 'idea'
 }
 
-version="1.6.1"
+version="2.0.0"
 description="${project.name} build script"
-group="fastily"
+group="benjaminkomen"
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 11
+targetCompatibility = 11
     
 repositories {
     jcenter()
@@ -21,9 +21,9 @@ dependencies {
     api "com.google.code.gson:gson:2.8.5"
     api "com.squareup.okhttp3:okhttp:3.11.0"
     
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.2.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.2.0'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.2.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.3.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.3.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.3.1'
     
     testImplementation 'com.squareup.okhttp3:mockwebserver:3.11.0'
 }
@@ -71,7 +71,7 @@ task wgen(type: Jar) {
   }
 
   manifest {
-    attributes 'Main-Class': 'fastily.jwiki.util.WGen'
+    attributes 'Main-Class': 'benjaminkomen.jwiki.util.WGen'
   }
   
   exclude "META-INF/*.SF", "**/LICENSE*", "**/NOTICE*", "**/maven/**"
@@ -95,9 +95,9 @@ publishing {
 
             pom {
                 name = 'jwiki'
-                description = 'A library for effortlessly interacting with Wikipedia/MediaWiki.'
+                description = 'A library for interacting with Wikia/MediaWiki'
                 inceptionYear = '2014'
-                url = 'https://github.com/fastily/jwiki'
+                url = 'https://github.com/benjaminkomen/jwiki'
                 licenses {
                     license {
                         name = 'GNU General Public License, Version 3.0'
