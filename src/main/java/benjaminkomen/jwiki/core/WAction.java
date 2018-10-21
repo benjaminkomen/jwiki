@@ -2,6 +2,7 @@ package benjaminkomen.jwiki.core;
 
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
+import benjaminkomen.jwiki.util.Tuple;
 import com.google.gson.JsonObject;
 import lombok.Getter;
 import okhttp3.Response;
@@ -42,7 +43,7 @@ class WAction {
      * @param form       The form data to post. This should not be URL-encoded
      * @return True on success
      */
-    protected static ActionResult postAction(Wiki wiki, String action, boolean applyToken, Map<String, String> form) {
+    protected static Tuple<ActionResult, JsonObject> postAction(Wiki wiki, String action, boolean applyToken, Map<String, String> form) {
         Map<String, String> fl = FL.produceMap("format", "json");
         if (applyToken) {
             fl.put("token", wiki.getWikiConfiguration().getToken());
@@ -56,10 +57,10 @@ class WAction {
                 wiki.getWikiConfiguration().getLog().debug(wiki, GSONP.getGsonPrettyPrint().toJson(result));
             }
 
-            return ActionResult.wrap(result, action);
+            return new Tuple<>(ActionResult.wrap(result, action), result);
         } catch (Exception e) {
             LOG.error("Error during posting action or parsing json.", e);
-            return ActionResult.NONE;
+            return new Tuple<>(ActionResult.NONE, new JsonObject());
         }
     }
 
@@ -81,7 +82,7 @@ class WAction {
             parameterList.put("bot", "");
         }
 
-        return postAction(wiki, "edit", true, parameterList) == ActionResult.SUCCESS;
+        return postAction(wiki, "edit", true, parameterList).getValue1() == ActionResult.SUCCESS;
     }
 
     /**
@@ -102,7 +103,7 @@ class WAction {
         }
 
         for (int i = 0; i < 5; i++) {
-            switch (postAction(wiki, "edit", true, parameterList)) {
+            switch (postAction(wiki, "edit", true, parameterList).getValue1()) {
                 case SUCCESS:
                     return true;
                 case RATELIMITED:
@@ -136,7 +137,7 @@ class WAction {
      */
     protected static boolean delete(Wiki wiki, String title, String reason) {
         wiki.getWikiConfiguration().getLog().info(wiki, "Deleting " + title);
-        return postAction(wiki, "delete", true, FL.produceMap(VAR_TITLE, title, "reason", reason)) == ActionResult.NONE;
+        return postAction(wiki, "delete", true, FL.produceMap(VAR_TITLE, title, "reason", reason)).getValue1() == ActionResult.NONE;
     }
 
     /**
@@ -151,7 +152,7 @@ class WAction {
         wiki.getWikiConfiguration().getLog().info(wiki, "Restoring " + title);
 
         for (int i = 0; i < 10; i++) {
-            if (postAction(wiki, "undelete", true, FL.produceMap(VAR_TITLE, title, "reason", reason)) == ActionResult.NONE) {
+            if (postAction(wiki, "undelete", true, FL.produceMap(VAR_TITLE, title, "reason", reason)).getValue1() == ActionResult.NONE) {
                 return true;
             }
         }
@@ -175,11 +176,11 @@ class WAction {
     /**
      * Uploads a file. Caution: overwrites files automatically.
      *
-     * @param wiki    The Wiki to work on.
-     * @param title   The title to upload the file to, excluding the {@code File:} prefix.
-     * @param description    The text to put on the newly uploaded file description page
-     * @param summary The edit summary to use when uploading a new file.
-     * @param file    The Path to the file to upload.
+     * @param wiki        The Wiki to work on.
+     * @param title       The title to upload the file to, excluding the {@code File:} prefix.
+     * @param description The text to put on the newly uploaded file description page
+     * @param summary     The edit summary to use when uploading a new file.
+     * @param file        The Path to the file to upload.
      * @return True on success.
      */
     protected static boolean upload(Wiki wiki, String title, String description, String summary, Path file) {
@@ -224,7 +225,7 @@ class WAction {
                 wiki.getWikiConfiguration().getLog().info(wiki, String.format("Unstashing '%s' as '%s'", filekey, title));
 
                 if (postAction(wiki, VAR_UPLOAD, true, FL.produceMap("filename", title, "text", description, "comment", summary, VAR_FILEKEY, filekey,
-                        "ignorewarnings", "true")) == ActionResult.SUCCESS) {
+                        "ignorewarnings", "true")).getValue1() == ActionResult.SUCCESS) {
                     return true;
                 }
 
@@ -282,22 +283,24 @@ class WAction {
         /**
          * Parses and wraps the response from a POST to the server in an ActionResult.
          *
-         * @param jo     The json response from the server
-         * @param action The name of the action which produced this response. e.g. {@code edit}, {@code delete}
+         * @param response The json response from the server
+         * @param action   The name of the action which produced this response. e.g. {@code edit}, {@code delete}
          * @return An ActionResult representing the response result of the query.
          */
-        private static ActionResult wrap(JsonObject jo, String action) {
+        private static ActionResult wrap(JsonObject response, String action) {
             try {
-                if (jo.has(action)) {
-                    if ("Success".equals(GSONP.getString(jo.getAsJsonObject(action), "result"))) {
+                if (response.has(action)) {
+                    if ("Success".equals(GSONP.getString(response.getAsJsonObject(action), "result"))) {
                         return SUCCESS;
+                    } else if ("NeedToken".equals(GSONP.getString(response.getAsJsonObject(action), "result"))) {
+                        return NOTOKEN;
                     } else {
                         if (LOG.isErrorEnabled()) {
-                            LOG.error(String.format("Something isn't right.  Got back '%s', missing a 'result'?%n", GSONP.getGson().toJson(jo)));
+                            LOG.error(String.format("Something isn't right.  Got back '%s', missing a 'result'?%n", GSONP.getGson().toJson(response)));
                         }
                     }
-                } else if (jo.has("error")) {
-                    switch (GSONP.getString(jo.getAsJsonObject("error"), "code")) {
+                } else if (response.has("error")) {
+                    switch (GSONP.getString(response.getAsJsonObject("error"), "code")) {
                         case "notoken":
                             return NOTOKEN;
                         case "badtoken":

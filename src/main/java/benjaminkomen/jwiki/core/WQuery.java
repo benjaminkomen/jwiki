@@ -178,9 +178,14 @@ class WQuery {
     public static final QTemplate TOKENS_CSRF = new QTemplate(FL.produceMap("meta", "tokens", "type", "csrf"), null);
 
     /**
-     * Default parameters for getting a login token.
+     * Default parameters for getting a login token. Only works with MediaWiki version 1.20.0 or higher.
      */
-    public static final QTemplate TOKENS_LOGIN = new QTemplate(FL.produceMap("meta", "tokens", "type", "login"), null);
+    public static final QTemplate TOKENS_LOGIN_NEW = new QTemplate(FL.produceMap("meta", "tokens", "type", "login"), null);
+
+    /**
+     * Default parameters for getting a login token. Works with MediaWiki version 1.19.0 and older.
+     */
+    public static final QTemplate TOKENS_LOGIN_LEGACY = new QTemplate(FL.produceMap("prop", "info", "intoken", "edit"), null);
 
     /**
      * Default parameters for getting a page's transclusions.

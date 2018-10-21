@@ -11,6 +11,7 @@ import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import benjaminkomen.jwiki.util.Tuple;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import lombok.Getter;
 import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
@@ -188,9 +189,13 @@ public class Wiki {
 
         wikiConfiguration.getLog().info(this, "Try login for " + user);
         try {
-            if (WAction.postAction(this, "login", false, FL.produceMap("lgname", user, "lgpassword", password, "lgtoken",
-                    getTokens(WQuery.TOKENS_LOGIN, "logintoken"))) == WAction.ActionResult.SUCCESS) {
-                refreshLoginStatus();
+
+            final String firstToken = getFirstToken(user, password);
+            final String secondToken = getSecondToken(user, password, firstToken);
+            final String editToken = getEditToken(secondToken);
+
+            if (editToken != null && !"".equals(editToken)) {
+                refreshLoginStatus(editToken);
 
                 wikiConfiguration.getLog().info(this, "Logged in as " + user);
                 return true;
@@ -203,9 +208,61 @@ public class Wiki {
     }
 
     /**
-     * Refresh the login status of a Wiki. This runs automatically on login or creation of a new CentralAuth'd Wiki.
+     * Attempt to login by posting to wiki/api.php?action=login&format=json with the lgname and lgpassword in the body as form-data.
+     * This will return an object containing: result = NeedToken and token = the_actual_token
+     *
+     * @return the first token
      */
-    public void refreshLoginStatus() {
+    private String getFirstToken(String username, String password) {
+        final Tuple<WAction.ActionResult, JsonObject> result = WAction.postAction(this, "login", false,
+                FL.produceMap("lgname", username, "lgpassword", password));
+
+        if (result.getValue1() == WAction.ActionResult.NOTOKEN) {
+            return GSONP.getString(result.getValue2().get("login").getAsJsonObject(), "token");
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Do another login attempt by posting to wiki/api.php?action=login&format=json with the lgname,
+     * lgpassword and the obtained token as lgtoken as form-data.
+     * This will return an object containing: result = Succes and lgtoken = _another_ token than the first one.
+     *
+     * @return the second token, aka lgtoken
+     */
+    private String getSecondToken(String username, String password, String firstToken) {
+        final Tuple<WAction.ActionResult, JsonObject> result = WAction.postAction(this, "login", false,
+                FL.produceMap("lgname", username, "lgpassword", password, "lgtoken", firstToken));
+
+        if (result.getValue1() == WAction.ActionResult.SUCCESS) {
+            return GSONP.getString(result.getValue2().get("login").getAsJsonObject(), "lgtoken");
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Perform a GET query to obtain the edittoken, needed to perform edits.
+     * @param secondToken the lgtoken obtained from earlier login-attempts.
+     * @return the edittoken, needed for editing pages.
+     */
+    private String getEditToken(String secondToken) {
+        final WQuery.QTemplate qTemplate = new WQuery.QTemplate(FL.produceMap("prop", "info",
+                "intoken", "edit", "titles", "Main Page", "lgtoken", secondToken), null);
+        final JsonObject pages = new WQuery(this, qTemplate).next().metaComp("pages").getAsJsonObject();
+        return pages.entrySet().stream()
+                .map(p -> p.getValue().getAsJsonObject().get("edittoken").getAsString())
+                .findAny()
+                .orElse(null);
+    }
+
+    /**
+     * Refresh the login status of a Wiki. This runs automatically on login or creation of a new CentralAuth'd Wiki.
+     *
+     * @param editToken The edittoken obtained earlier in the login-process
+     */
+    public void refreshLoginStatus(String editToken) {
         wikiConfiguration = Conf.builder()
                 .debug(wikiConfiguration.isDebug())
                 .userAgent(wikiConfiguration.getUserAgent())
@@ -216,12 +273,17 @@ public class Wiki {
                 .maxResultLimit(wikiConfiguration.getMaxResultLimit())
                 .uname(GSONP.getString(new WQuery(this, WQuery.USERINFO).next().metaComp("userinfo").getAsJsonObject(), "name"))
                 .log(wikiConfiguration.getLog())
-                .token(getTokens(WQuery.TOKENS_CSRF, "csrftoken"))
+                .token(editToken)
                 .build();
 
         wikis.put(wikiConfiguration.getHostname(), this);
 
         wikiConfiguration.setBot(listUserRights(wikiConfiguration.getUname()).contains("bot"));
+    }
+
+
+    public void refreshLoginStatus() {
+        refreshLoginStatus(null);
     }
 
     /**
