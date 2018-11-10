@@ -1,16 +1,13 @@
 apply plugin: 'com.jfrog.bintray'
 
-Properties properties = new Properties()
-properties.load(project.rootProject.file('local.properties').newDataInputStream())
-
 bintray {
-    user = properties.getProperty("bintray.user")
-    key = properties.getProperty("bintray.apikey")
+    user = hasProperty('bintrayUser') ? bintrayUser : System.getenv('bintrayUser')
+    key = hasProperty('bintrayApiKey') ? bintrayApiKey : System.getenv('bintrayApiKey')
     publications = ['mavenPublish']
     pkg {
         repo = 'maven'
         name = 'jwiki'
-        licenses = licenses
+        licenses = ['GNU-3.0']
         publish = true
         publicDownloadNumbers = true
         vcsUrl = 'https://github.com/benjaminkomen/jwiki.git'
