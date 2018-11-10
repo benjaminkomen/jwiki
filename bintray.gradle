@@ -1,0 +1,31 @@
+apply plugin: 'com.jfrog.bintray'
+
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+bintray {
+    user = properties.getProperty("bintray.user")
+    key = properties.getProperty("bintray.apikey")
+    publications = ['mavenPublish']
+    pkg {
+        repo = 'maven'
+        name = 'jwiki'
+        licenses = licenses
+        publish = true
+        publicDownloadNumbers = true
+        vcsUrl = 'https://github.com/benjaminkomen/jwiki.git'
+        version {
+            name = project.version
+            desc = project.version
+            released  = new Date()
+        }
+        dryRun = false
+    }
+
+}
+
+afterEvaluate {
+    tasks.bintrayUpload.doLast {
+        logger.lifecycle("Uploaded artifacts to bintray at version $version")
+    }
+}

@@ -9,9 +9,8 @@ This is a fork of [jwiki by fastily](https://github.com/fastily/jwiki). This for
 
 Try out the [examples](https://github.com/benjaminkomen/jwiki/wiki/Examples).
 
-<!--
 ## Download
- jwiki is [on jcenter](https://bintray.com/fastily/maven/jwiki). -->
+ jwiki is [on jcenter](https://bintray.com/benjaminkomen/maven/jwiki).
 
 #### Maven
 ```xml
