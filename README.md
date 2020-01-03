@@ -1,7 +1,6 @@
 # jwiki
 [![Build Status](https://www.travis-ci.com/benjaminkomen/jwiki.svg?branch=master)](https://www.travis-ci.com/benjaminkomen/jwiki)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=benjaminkomen%3Ajwiki&metric=alert_status)](https://sonarcloud.io/dashboard?id=benjaminkomen%3Ajwiki)
-![JDK-1.8+](https://upload.wikimedia.org/wikipedia/commons/7/75/Blue_JDK_1.8%2B_Shield_Badge.svg)
 [![License: GPL v3](https://upload.wikimedia.org/wikipedia/commons/8/86/GPL_v3_Blue_Badge.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
 This is a fork of [jwiki by fastily](https://github.com/fastily/jwiki). This fork attempts to be compatible with
@@ -17,14 +16,14 @@ Try out the [examples](https://github.com/benjaminkomen/jwiki/wiki/Examples).
 <dependency>
   <groupId>benjaminkomen</groupId>
   <artifactId>jwiki</artifactId>
-  <version>2.0.0</version>
+  <version>2.1.0</version>
   <type>pom</type>
 </dependency>
 ```
 
 #### Gradle
 ```groovy
-compile 'benjaminkomen:jwiki:2.0.0'
+compile 'benjaminkomen:jwiki:2.1.0'
 ```
 
 ## Build

@@ -1,5 +1,6 @@
 bin/
 build/
+out/
 
 # OS Generated files
 .DS_Store
