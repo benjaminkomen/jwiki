@@ -11,7 +11,6 @@ plugins {
     id 'maven-publish'
     id 'eclipse'
     id 'idea'
-    id "com.jfrog.bintray" version "1.7.3"
 }
 
 version = "2.1.0"
@@ -58,7 +57,7 @@ javadoc {
         links "https://docs.oracle.com/en/java/javase/13/docs/api/"
         links "https://square.github.io/okio/1.x/okio/"
         links "https://square.github.io/okhttp/3.x/okhttp/"
-        links "https://fastily.github.io/jwiki/docs/gson/"
+        links "https://fastily.org/jwiki/docs/gson/"
 
         // links "http://square.github.io/okhttp/3.x/mockwebserver/"
         // setOutputLevel JavadocOutputLevel.VERBOSE
@@ -100,9 +99,19 @@ wrapper {
 
 
 publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/benjaminkomen/jwiki")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("PASSWORD")
+            }
+        }
+    }
     publications {
-        mavenPublish(MavenPublication) {
-            from components.java
+        gpr(MavenPublication) {
+            from(components.java)
 
             artifact sourceJar {
                 classifier "sources"
@@ -131,5 +140,3 @@ publishing {
         }
     }
 }
-
-apply from: 'bintray.gradle'
