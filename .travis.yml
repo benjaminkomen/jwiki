@@ -1,4 +1,4 @@
-dist: trusty
+dist: xenial
 sudo: false
 language: java
 jdk:
@@ -17,4 +17,5 @@ cache:
     - '$HOME/.sonar/cache'
 
 script:
-  - sonar-scanner
+  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then sonar-scanner; fi' # sonar only on non-PRs
+

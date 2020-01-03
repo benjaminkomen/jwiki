@@ -11,10 +11,9 @@ plugins {
     id 'maven-publish'
     id 'eclipse'
     id 'idea'
-    id "com.jfrog.bintray" version "1.7.3"
 }
 
-version = "2.1.0"
+version = "2.2.0"
 description = "${project.name} build script"
 group = "benjaminkomen"
 
@@ -38,6 +37,7 @@ dependencies {
 
     testImplementation 'com.squareup.okhttp3:mockwebserver:4.2.2'
     api 'org.slf4j:slf4j-api:1.8.0-beta2'
+    api 'org.slf4j:slf4j-log4j12:1.8.0-beta2'
     compileOnly 'org.projectlombok:lombok:1.18.4'
     annotationProcessor 'org.projectlombok:lombok:1.18.4'
 }
@@ -58,7 +58,7 @@ javadoc {
         links "https://docs.oracle.com/en/java/javase/13/docs/api/"
         links "https://square.github.io/okio/1.x/okio/"
         links "https://square.github.io/okhttp/3.x/okhttp/"
-        links "https://fastily.github.io/jwiki/docs/gson/"
+        links "https://fastily.org/jwiki/docs/gson/"
 
         // links "http://square.github.io/okhttp/3.x/mockwebserver/"
         // setOutputLevel JavadocOutputLevel.VERBOSE
@@ -76,33 +76,25 @@ task packageJavadoc(type: Jar) {
     classifier = 'javadoc'
 }
 
-
-task wgen(type: Jar) {
-    archiveBaseName = "WGen"
-
-    from {
-        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-
-    manifest {
-        attributes 'Main-Class': 'benjaminkomen.jwiki.util.WGen'
-    }
-
-    exclude "META-INF/*.SF", "**/LICENSE*", "**/NOTICE*", "**/maven/**"
-
-    with jar
-}
-
-
 wrapper {
     gradleVersion = '6.0.1'
 }
 
 
 publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/benjaminkomen/jwiki")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("PASSWORD")
+            }
+        }
+    }
     publications {
-        mavenPublish(MavenPublication) {
-            from components.java
+        gpr(MavenPublication) {
+            from(components.java)
 
             artifact sourceJar {
                 classifier "sources"
@@ -131,5 +123,3 @@ publishing {
         }
     }
 }
-
-apply from: 'bintray.gradle'

@@ -4,17 +4,14 @@ import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Wraps the various functions of API functions of {@code action=query}.
@@ -159,6 +156,12 @@ class WQuery {
      */
     public static final QTemplate REVISIONS = new QTemplate(
             FL.produceMap("prop", VAR_REVISIONS, "rvprop", "timestamp|user|comment|content", VAR_TITLES, null), "rvlimit", VAR_REVISIONS);
+
+    /**
+     * Default parameters for listing searches
+     */
+    public static final QTemplate SEARCH = new QTemplate(FL.produceMap("list", "search", "srprop", "", "srnamespace", "*", "srsearch", null), "srlimit", "search");
+
 
     /**
      * Default parameters for getting templates on a page
@@ -310,7 +313,7 @@ class WQuery {
                 canContinue = false;
             }
 
-            result = GSONP.getJsonParser().parse(wiki.getApiclient().basicGET(parameterList).body().string()).getAsJsonObject();
+            result = JsonParser.parseString(wiki.getApiclient().basicGET(parameterList).body().string()).getAsJsonObject();
             if (result.has("continue")) {
                 parameterList.putAll(GSONP.getGson().fromJson(result.getAsJsonObject("continue"), strMapT));
             } else if (result.has("query-continue")) {

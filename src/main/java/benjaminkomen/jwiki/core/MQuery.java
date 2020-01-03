@@ -2,19 +2,11 @@ package benjaminkomen.jwiki.core;
 
 import benjaminkomen.jwiki.core.WQuery.QTemplate;
 import benjaminkomen.jwiki.dwrap.ImageInfo;
-import benjaminkomen.jwiki.util.FL;
-import benjaminkomen.jwiki.util.GSONP;
-import benjaminkomen.jwiki.util.GroupQueue;
-import benjaminkomen.jwiki.util.MultiMap;
-import benjaminkomen.jwiki.util.Tuple;
+import benjaminkomen.jwiki.util.*;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Perform multi-title queries. Use of these methods is intended for
@@ -185,14 +177,14 @@ public final class MQuery {
     /**
      * Gets the list of usergroups (rights) users belong to. Sample groups: sysop, user, autoconfirmed, editor.
      *
-     * @param wiki  The wiki object to use.
-     * @param users The list of users to get rights information for. Do not include "User:" prefix.
-     * @return The list of results keyed by username.
+     * @param wiki  The Wiki object to use.
+     * @param users Users to get rights information for. Do not include {@code User:} prefix.
+     * @return A Map such that the key is the user and the value a List of the user's rights (or null if the user does not exist)
      */
     public static Map<String, List<String>> listUserRights(Wiki wiki, Collection<String> users) {
         Map<String, List<String>> l = new HashMap<>();
         getNoContList(wiki, users, WQuery.USERRIGHTS, null, "ususers", "users")
-                .forEach(jo -> l.put(GSONP.getString(jo, "name"), GSONP.convertJsonArrayToList(jo.getAsJsonArray("groups"))));
+                .forEach(jo -> l.put(GSONP.getString(jo, "name"), jo.has("groups") ? GSONP.convertJsonArrayToList(jo.getAsJsonArray("groups")) : null));
 
         return l;
     }
@@ -417,7 +409,7 @@ public final class MQuery {
     }
 
     /**
-     * Gets duplicates of a file. Note that results are returned *without* a namespace prefix.
+     * Gets duplicates of a file.
      *
      * @param wiki      The wiki object to use
      * @param localOnly Set to true if you only want to look for files in the local repository.
@@ -432,15 +424,14 @@ public final class MQuery {
 
         Map<String, List<String>> l = parsePropToSingle(getContProp(wiki, titles, WQuery.DUPLICATEFILES, pl, "duplicatefiles"),
                 "name");
-        l.forEach((k, v) -> v.replaceAll(s -> s.replace('_', ' ')));
+        l.forEach((k, v) -> v.replaceAll(s -> wiki.convertIfNotInNS(s.replace('_', ' '), NS.FILE)));
 
         return l;
     }
 
     /**
      * Gets shared (non-local) duplicates of a file. PRECONDITION: The Wiki this query is run against has the
-     * <a href="https://www.mediawiki.org/wiki/Extension:GlobalUsage">GlobalUsage</a> extension installed. Note that
-     * results are returned *without* a namespace prefix.
+     * <a href="https://www.mediawiki.org/wiki/Extension:GlobalUsage">GlobalUsage</a> extension installed.
      *
      * @param wiki   The wiki object to use
      * @param titles The titles to query
@@ -451,7 +442,12 @@ public final class MQuery {
                 getContProp(wiki, titles, WQuery.DUPLICATEFILES, null, "duplicatefiles"), "name", "shared");
 
         Map<String, List<String>> l = new HashMap<>();
-        xl.forEach((k, v) -> l.put(k, FL.toArrayList(v.stream().filter(t -> t.getValue2() != null).map(t -> t.getValue1().replace('_', ' ')))));
+        xl.forEach((k, v) -> l.put(k,
+                FL.toArrayList(v.stream()
+                        .filter(t -> t.getValue2() != null)
+                        .map(t -> wiki.convertIfNotInNS(t.getValue1().replace('_', ' '), NS.FILE))
+                )
+        ));
         return l;
     }
 

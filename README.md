@@ -9,27 +9,32 @@ This is a fork of [jwiki by fastily](https://github.com/fastily/jwiki). This for
 Try out the [examples](https://github.com/benjaminkomen/jwiki/wiki/Examples).
 
 ## Download
- jwiki is [on jcenter](https://bintray.com/benjaminkomen/maven/jwiki).
+ jwiki is [on GitHub Packages](https://github.com/benjaminkomen/jwiki/packages?package_type=Maven).
 
 #### Maven
 ```xml
 <dependency>
   <groupId>benjaminkomen</groupId>
   <artifactId>jwiki</artifactId>
-  <version>2.1.0</version>
+  <version>2.2.0</version>
   <type>pom</type>
 </dependency>
 ```
 
 #### Gradle
 ```groovy
-compile 'benjaminkomen:jwiki:2.1.0'
+compile 'benjaminkomen:jwiki:2.2.0'
 ```
 
 ## Build
 Build and publish jwiki on your local machine with
 ```bash
 ./gradlew build publishToMavenLocal
+```
+
+Publishing to GitHub Packages is done with:
+```bash
+./gradlew publish
 ```
 
 ## Resources

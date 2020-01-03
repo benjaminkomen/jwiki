@@ -2,6 +2,7 @@ package benjaminkomen.jwiki.core;
 
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
+import com.google.gson.JsonParser;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,15 +15,7 @@ import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.StringReader;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Parses wikitext into a DOM-style, manipulatable format that is easy to work with.
@@ -50,7 +43,7 @@ public class WParser {
         try {
             XMLEventReader r = XMLInputFactory.newInstance()
                     .createXMLEventReader(new StringReader(GSONP
-                            .getString(GSONP.getNestedJsonObject(GSONP.getJsonParser().parse(wiki.basicPOST("parse", queryParams).body().string()).getAsJsonObject(),
+                            .getString(GSONP.getNestedJsonObject(JsonParser.parseString(wiki.basicPOST("parse", queryParams).body().string()).getAsJsonObject(),
                                     FL.toStringArrayList("parse", "parsetree")), "*")));
 
             WikiText root = new WikiText();
@@ -110,11 +103,11 @@ public class WParser {
                 StartElement se = e.asStartElement();
                 switch (se.getName().getLocalPart()) {
                     case "title":
-                        t.title = getNextElementText(r).trim();
+                        t.title = getNextElementText(r).strip();
                         break;
                     case "name":
                         Attribute index = se.getAttributeByName(new QName("index"));
-                        lastNameParsed = index != null ? index.getValue() : getNextElementText(r).trim();
+                        lastNameParsed = index != null ? index.getValue() : getNextElementText(r).strip();
                         break;
                     case "equals":
                         getNextElementText(r);
@@ -313,7 +306,7 @@ public class WParser {
             }
 
             String out = b.toString();
-            return doTrim ? out.trim() : out;
+            return doTrim ? out.strip() : out;
         }
     }
 
@@ -396,7 +389,7 @@ public class WParser {
         /**
          * Puts a new parameter in this Template.
          *
-         * @param key The name of the parameter
+         * @param key   The name of the parameter
          * @param value The value of the parameter; acceptable types are WikiText, String, and WTemplate.
          */
         public void put(String key, Object value) {

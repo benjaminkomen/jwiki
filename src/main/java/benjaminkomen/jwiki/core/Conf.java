@@ -96,4 +96,8 @@ public final class Conf {
     public void setBot(boolean bot) {
         isBot = bot;
     }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
 }
