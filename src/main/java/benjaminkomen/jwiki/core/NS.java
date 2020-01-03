@@ -109,7 +109,7 @@ public final class NS {
      *
      * @param value The namespace value to initialize the NS with.
      */
-    protected NS(int value) {
+    public NS(int value) {
         this.value = value;
     }
 

@@ -32,6 +32,11 @@ Build and publish jwiki on your local machine with
 ./gradlew build publishToMavenLocal
 ```
 
+Publishing to GitHub Packages is done with:
+```bash
+./gradlew publish
+```
+
 ## Resources
 * [Examples](https://github.com/benjaminkomen/jwiki/wiki/Examples)
 <!-- * [Javadocs](https://fastily.github.io/jwiki/docs/jwiki/) -->
