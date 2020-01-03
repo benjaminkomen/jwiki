@@ -16,14 +16,14 @@ Try out the [examples](https://github.com/benjaminkomen/jwiki/wiki/Examples).
 <dependency>
   <groupId>benjaminkomen</groupId>
   <artifactId>jwiki</artifactId>
-  <version>2.1.0</version>
+  <version>2.2.0</version>
   <type>pom</type>
 </dependency>
 ```
 
 #### Gradle
 ```groovy
-compile 'benjaminkomen:jwiki:2.1.0'
+compile 'benjaminkomen:jwiki:2.2.0'
 ```
 
 ## Build
