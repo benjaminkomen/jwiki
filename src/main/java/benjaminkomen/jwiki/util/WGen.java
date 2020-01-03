@@ -96,7 +96,7 @@ public class WGen {
      * @param user The username to get a password for.
      * @return The key associated with {@code user}
      */
-    public static synchronized String pxFor(String user) {
+    public static synchronized String passwordFor(String user) {
         Path f;
         if (Files.isRegularFile(px)) {
             f = px;
@@ -133,7 +133,7 @@ public class WGen {
         }
 
         try {
-            Wiki wiki = new Wiki(user, pxFor(user), domain);
+            Wiki wiki = new Wiki.Builder().withLogin(user, passwordFor(user)).withDomain(domain).build();
             cache.put(user, wiki);
             return wiki;
         } catch (Exception e) {

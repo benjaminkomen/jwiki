@@ -1,17 +1,7 @@
 package benjaminkomen.jwiki.core;
 
 import benjaminkomen.jwiki.util.FL;
-import okhttp3.Cookie;
-import okhttp3.CookieJar;
-import okhttp3.FormBody;
-import okhttp3.HttpUrl;
-import okhttp3.Interceptor;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import okhttp3.*;
 
 import java.io.IOException;
 import java.net.Proxy;
@@ -46,20 +36,19 @@ class ApiClient {
     /**
      * Constructor, create a new ApiClient for a Wiki instance.
      *
-     * @param wiki        The Wiki object this ApiClient is associated with.
-     * @param proxy       The proxy to use. Optional param - set null to disable.
-     * @param interceptor An okhttp Interceptor to use. Useful for pre/post processing of output. Optional param - set
-     *                    null to disable.
+     * @param wiki  The Wiki object this ApiClient is associated with.
+     * @param proxy The proxy to use. Optional param - set null to disable.
      */
-    protected ApiClient(Wiki wiki, Proxy proxy, Interceptor interceptor) {
+    protected ApiClient(Wiki wiki, Proxy proxy) {
         this.wiki = wiki;
 
-        OkHttpClient.Builder builder = new OkHttpClient.Builder().cookieJar(new JwikiCookieJar()).readTimeout(2, TimeUnit.MINUTES);
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+                .cookieJar(new JwikiCookieJar())
+                .readTimeout(2, TimeUnit.MINUTES)
+                .protocols(List.of(Protocol.HTTP_1_1));
+
         if (proxy != null) {
             builder.proxy(proxy);
-        }
-        if (interceptor != null) {
-            builder.addNetworkInterceptor(interceptor);
         }
 
         client = builder.build();
@@ -140,7 +129,7 @@ class ApiClient {
         MultipartBody.Builder mpb = new MultipartBody.Builder().setType(MultipartBody.FORM);
         form.forEach(mpb::addFormDataPart);
 
-        mpb.addFormDataPart("chunk", fn, RequestBody.create(OCTETSTREAM, chunk));
+        mpb.addFormDataPart("chunk", fn, RequestBody.create(chunk, OCTETSTREAM));
 
         Request r = startReq(params).post(mpb.build()).build();
         return client.newCall(r).execute();

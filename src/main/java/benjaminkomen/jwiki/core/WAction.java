@@ -4,6 +4,7 @@ import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import benjaminkomen.jwiki.util.Tuple;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import lombok.Getter;
 import okhttp3.Response;
 import okio.BufferedSource;
@@ -52,7 +53,7 @@ class WAction {
         fl.putAll(form);
 
         try {
-            JsonObject result = GSONP.getJsonParser().parse(wiki.getApiclient().basicPOST(FL.produceMap("action", action), fl).body().string()).getAsJsonObject();
+            JsonObject result = JsonParser.parseString(wiki.getApiclient().basicPOST(FL.produceMap("action", action), fl).body().string()).getAsJsonObject();
             if (wiki.getWikiConfiguration().isDebug()) {
                 wiki.getWikiConfiguration().getLog().debug(wiki, GSONP.getGsonPrettyPrint().toJson(result));
             }
@@ -167,7 +168,7 @@ class WAction {
      * @param titles The title(s) to purge.
      */
     protected static void purge(Wiki wiki, List<String> titles) {
-        wiki.getWikiConfiguration().getLog().info(wiki, "Purging :" + titles);
+        wiki.getWikiConfiguration().getLog().info(wiki, "Purging: " + titles);
 
         Map<String, String> pl = FL.produceMap("titles", FL.pipeFence(titles));
         postAction(wiki, "purge", false, pl);
@@ -210,7 +211,7 @@ class WAction {
                             continue;
                         }
 
-                        filekey = GSONP.getString(GSONP.getJsonParser().parse(response.body().string()).getAsJsonObject().getAsJsonObject(VAR_UPLOAD), VAR_FILEKEY);
+                        filekey = GSONP.getString(JsonParser.parseString(response.body().string()).getAsJsonObject().getAsJsonObject(VAR_UPLOAD), VAR_FILEKEY);
                         if (filekey != null) {
                             break;
                         }

@@ -21,7 +21,7 @@ public class MQueryTests {
     /**
      * The Wiki object to use for this test set.
      */
-    private static Wiki wiki = new Wiki("test.wikipedia.org");
+    private static Wiki wiki = new Wiki.Builder().withDomain("test.wikipedia.org").build();
 
     /**
      * Test for listUserRights.
@@ -98,8 +98,8 @@ public class MQueryTests {
         assertTrue(result.containsKey("Category:Fastily Test"));
         assertTrue(result.containsKey("Category:Fastily Test2"));
 
-        assertEquals(Integer.valueOf(4), result.get("Category:Fastily Test"));
-        assertEquals(Integer.valueOf(2), result.get("Category:Fastily Test2"));
+        assertEquals(4, result.get("Category:Fastily Test"));
+        assertEquals(2, result.get("Category:Fastily Test2"));
     }
 
     /**

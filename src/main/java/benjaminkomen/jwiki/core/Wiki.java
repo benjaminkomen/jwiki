@@ -1,20 +1,14 @@
 package benjaminkomen.jwiki.core;
 
-import benjaminkomen.jwiki.dwrap.Contrib;
-import benjaminkomen.jwiki.dwrap.ImageInfo;
-import benjaminkomen.jwiki.dwrap.LogEntry;
-import benjaminkomen.jwiki.dwrap.PageSection;
-import benjaminkomen.jwiki.dwrap.ProtectedTitleEntry;
-import benjaminkomen.jwiki.dwrap.RecentChangesEntry;
-import benjaminkomen.jwiki.dwrap.Revision;
+import benjaminkomen.jwiki.dwrap.*;
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import benjaminkomen.jwiki.util.Tuple;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import lombok.Getter;
 import okhttp3.HttpUrl;
-import okhttp3.Interceptor;
 import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,20 +16,12 @@ import org.slf4j.LoggerFactory;
 import java.net.Proxy;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 
 /**
- * Main entry point of the jwiki API. This class contains most queries/actions which jwiki can perform on a wiki. Unless
- * stated otherwise, all methods are thread-safe.
+ * Main entry point of jwiki. This class aggregates most of the queries/actions which jwiki can perform on a wiki. All
+ * methods are backed by static functions and are therefore thread-safe.
  *
  * @author Fastily
  */
@@ -67,6 +53,144 @@ public class Wiki {
     private static final String VAR_NEWER = "newer";
 
     /**
+     * Builder used to create Wiki objects. All options are optional. If you're lazy and just want an anonymous Wiki
+     * pointing to en.wikipedia.org, use {@code new Wiki.Builder().build()}
+     *
+     * @author Fastily
+     */
+    public static class Builder {
+        /**
+         * The Proxy to use
+         */
+        private Proxy proxy;
+
+        /**
+         * The api endpoint to use
+         */
+        private HttpUrl apiEndpoint;
+
+        /**
+         * Flag indicating whether to enable logging
+         */
+        private boolean enableLogging = true;
+
+        /**
+         * The User-Agent to header to use for API requests.
+         */
+        private String userAgent;
+
+        /**
+         * Username to login as.
+         */
+        private String username;
+
+        /**
+         * Password to login with.
+         */
+        private String password;
+
+        /**
+         * Creates a new Wiki Builder.
+         */
+        public Builder() {
+            // Intentionally empty
+        }
+
+        /**
+         * Configures the Wiki to be created to use the specified User-Agent for HTTP requests.
+         *
+         * @param userAgent The User-Agent to use
+         * @return This Builder
+         */
+        public Builder withUserAgent(String userAgent) {
+            this.userAgent = userAgent;
+            return this;
+        }
+
+        /**
+         * Configures the Wiki to be created with the specified Proxy.
+         *
+         * @param proxy The Proxy to use
+         * @return This Builder
+         */
+        public Builder withProxy(Proxy proxy) {
+            this.proxy = proxy;
+            return this;
+        }
+
+        /**
+         * Configures the Wiki to be created with the specified api endpoint. This is the base endpoint of the MediaWiki
+         * instance you are targeting. Example: <a href="https://en.wikipedia.org/w/api.php">Wikipedia API</a>.
+         *
+         * @param apiEndpoint The base api endpoint to target
+         * @return This Builder
+         */
+        public Builder withApiEndpoint(HttpUrl apiEndpoint) {
+            this.apiEndpoint = apiEndpoint;
+            return this;
+        }
+
+        /**
+         * Configures the Wiki to be created with the specified domain. This method assumes that the target API endpoint
+         * is located at {@code https://<YOUR_DOMAIN_HERE>/w/api.php}; if this is not the case, then use
+         * {@link #withApiEndpoint(HttpUrl)}
+         *
+         * @param domain The domain to target. Example: {@code en.wikipedia.org}.
+         * @return This Builder
+         */
+        public Builder withDomain(String domain) {
+            return withApiEndpoint(HttpUrl.parse(String.format("https://%s/w/api.php", domain)));
+        }
+
+        /**
+         * Configures the Wiki to use the default jwiki logger. This is enabled by default.
+         *
+         * @param enableLogging Set false to disable jwiki's built-in logging.
+         * @return This Builder
+         */
+        public Builder withDefaultLogger(boolean enableLogging) {
+            this.enableLogging = enableLogging;
+            return this;
+        }
+
+        /**
+         * Configures the Wiki to be created with the specified username and password combination. Login will be attempted
+         * when {@link #build()} is called.
+         *
+         * @param username The username to use
+         * @param password The password to use
+         * @return This Builder
+         */
+        public Builder withLogin(String username, String password) {
+            this.username = username;
+            this.password = password;
+            return this;
+        }
+
+        /**
+         * Performs the task of creating the Wiki object as configured. If {@link #withApiEndpoint(HttpUrl)} or
+         * {@link #withDomain(String)} were not called, then the resulting Wiki will default to the
+         * <a href="https://en.wikipedia.org/w/api.php">Wikipedia API</a>.
+         *
+         * @return A Wiki object
+         */
+        public Wiki build() {
+            if (apiEndpoint == null) {
+                withDomain("en.wikipedia.org");
+            }
+
+            Wiki wiki = new Wiki(username, password, apiEndpoint, proxy, null, enableLogging);
+
+            // apply post-create settings
+            if (userAgent != null) {
+                wiki.getWikiConfiguration().setUserAgent(userAgent);
+            }
+
+            return wiki;
+        }
+    }
+
+    /**
      * Constructor, configures all possible params. If the username and password are set but not valid then a
      * SecurityException will be thrown.
      *
@@ -74,13 +198,11 @@ public class Wiki {
      * @param password      The password to login with. Optional - depends on user not being null, set null to disable.
      * @param baseURL       The URL pointing to the target MediaWiki API endpoint.
      * @param proxy         The Proxy to use. Optional - set null to disable.
-     * @param interceptor   An OkHttp interceptor, useful for pre/post flight modifications. Optional - set null to
-     *                      disable.
      * @param parent        The parent Wiki which spawned this Wiki using {@code getWiki()}. If this is the first Wiki, disable
      *                      with null.
      * @param enableLogging Set true to enable std err log messages. Set false to disable std err log messages.
      */
-    private Wiki(String user, String password, HttpUrl baseURL, Proxy proxy, Interceptor interceptor, Wiki parent, boolean enableLogging) {
+    private Wiki(String user, String password, HttpUrl baseURL, Proxy proxy, Wiki parent, boolean enableLogging) {
         wikiConfiguration = new Conf(baseURL, new ColorLog(enableLogging));
 
         // CentralAuth login
@@ -90,7 +212,7 @@ public class Wiki {
 
             refreshLoginStatus();
         } else {
-            apiclient = new ApiClient(this, proxy, interceptor);
+            apiclient = new ApiClient(this, proxy);
 
             if (user != null && password != null && !login(user, password))
                 throw new SecurityException(String.format("Failed to log-in as %s @ %s", wikiConfiguration.getUname(), wikiConfiguration.getHostname()));
@@ -98,73 +220,6 @@ public class Wiki {
 
         wikiConfiguration.getLog().info(this, "Fetching Namespace List");
         namespaceManager = new NS.NSManager(new WQuery(this, WQuery.NAMESPACES).next().getInput().getAsJsonObject("query"));
-    }
-
-    /**
-     * Constructor, creates a Wiki with the specified domain and other optional parameters.
-     *
-     * @param user          The username to use. Optional - set null to disable.
-     * @param password      The password to login with. Optional - depends on user not bei
-     * @param domain        The domain name. Use shorthand form, ex: {@code en.wikipedia.org}.
-     * @param proxy         The Proxy to use. Optional - set null to disable.
-     * @param interceptor   An OkHttp interceptor, useful for pre/post flight modifications. Optional - set null to
-     *                      disable.
-     * @param enableLogging Set true to enable std err log messages. Set false to disable std err log messages.
-     */
-    private Wiki(String user, String password, String domain, Proxy proxy, Interceptor interceptor, boolean enableLogging) {
-        this(user, password, HttpUrl.parse(String.format("https://%s/w/api.php", domain)), proxy, interceptor, null, enableLogging);
-    }
-
-    /**
-     * Constructor, creates an anonymous Wiki with the specified API endpoint, proxy, and/or interceptor.
-     *
-     * @param user          The username to use. Optional - set null to disable.
-     * @param password      The password to use. Optional - set null to disable. CAVEAT: ignored if user is null.
-     * @param baseURL       The URL pointing to the target MediaWiki API endpoint.
-     * @param proxy         The Proxy to use. Optional - set null to disable.
-     * @param interceptor   An OkHttp interceptor, useful for pre/post flight modifications. Optional - set null to
-     *                      disable.
-     * @param enableLogging Set true to enable std err log messages. Set false to disable std err log messages.
-     */
-    public Wiki(String user, String password, HttpUrl baseURL, Proxy proxy, Interceptor interceptor, boolean enableLogging) {
-        this(user, password, baseURL, proxy, interceptor, null, enableLogging);
-    }
-
-    /**
-     * Constructor, creates an anonymous Wiki with the specified domain and interceptor. CAVEAT: This method assumes that
-     * the base API endpoint you are targeting is located at {@code https://<WIKI_DOMAIN>/w/api.php}. If this is not the
-     * case, then please use {@link #Wiki(String, String, HttpUrl, Proxy, Interceptor, boolean)}.
-     *
-     * @param domain      The domain name. Use shorthand form, ex: {@code en.wikipedia.org}.
-     * @param interceptor An OkHttp interceptor, useful for pre/post flight modifications. Optional - set null to
-     *                    disable.
-     */
-    public Wiki(String domain, Interceptor interceptor) {
-        this(null, null, domain, null, interceptor, true);
-    }
-
-    /**
-     * Constructor, takes user, password, and domain to login as. CAVEAT: This method assumes that the base API endpoint
-     * you are targeting is located at {@code https://<WIKI_DOMAIN>/w/api.php}. If this is not the case, then please use
-     * {@link #Wiki(String, String, HttpUrl, Proxy, Interceptor, boolean)}.
-     *
-     * @param user     The username to use
-     * @param password The password to use
-     * @param domain   The domain name. Use shorthand form, ex: {@code en.wikipedia.org}.
-     */
-    public Wiki(String user, String password, String domain) {
-        this(user, password, domain, null, null, true);
-    }
-
-    /**
-     * Constructor, creates an anonymous Wiki which is not logged in. CAVEAT: This method assumes that the base API
-     * endpoint you are targeting is located at {@code https://<WIKI_DOMAIN>/w/api.php}. If this is not the case, then
-     * please use {@link #Wiki(String, String, HttpUrl, Proxy, Interceptor, boolean)}.
-     *
-     * @param domain The domain name. Use shorthand form, ex: {@code en.wikipedia.org}.
-     */
-    public Wiki(String domain) {
-        this(null, null, domain);
     }
 
     /* //////////////////////////////////////////////////////////////////////////////// */
@@ -244,6 +299,7 @@ public class Wiki {
 
     /**
      * Perform a GET query to obtain the edittoken, needed to perform edits.
+     *
      * @param secondToken the lgtoken obtained from earlier login-attempts.
      * @return the edittoken, needed for editing pages.
      */
@@ -413,7 +469,7 @@ public class Wiki {
         try {
             return wikis.containsKey(domain)
                     ? wikis.get(domain)
-                    : new Wiki(null, null, wikiConfiguration.getBaseURL().newBuilder().host(domain).build(), null, null, this, wikiConfiguration.getLog().isEnabled());
+                    : new Wiki(null, null, wikiConfiguration.getBaseURL().newBuilder().host(domain).build(), null, this, wikiConfiguration.getLog().isEnabled());
         } catch (Exception e) {
             LOG.error("Exception during obtaining wiki", e);
             return null;
@@ -779,10 +835,10 @@ public class Wiki {
     }
 
     /**
-     * Gets duplicates of a file. Note that results are returned *without* a namespace prefix.
+     * List duplicates of a file.
      *
      * @param title     The title to query. PRECONDITION: You MUST include the namespace prefix (e.g. "File:")
-     * @param localOnly Set to true to restrict results to <b>local</b> duplicates only.
+     * @param localOnly Set to true to restrict results to <span style="font-weight:bold;">local</span> duplicates only.
      * @return Duplicates of this file.
      */
     public List<String> getDuplicatesOf(String title, boolean localOnly) {
@@ -1058,8 +1114,7 @@ public class Wiki {
 
     /**
      * Gets the shared (non-local) duplicates of a file. PRECONDITION: The Wiki this query is run against has the
-     * <a href="https://www.mediawiki.org/wiki/Extension:GlobalUsage">GlobalUsage</a> extension installed. Note that
-     * results are returned *without* a namespace prefix.
+     * <a href="https://www.mediawiki.org/wiki/Extension:GlobalUsage">GlobalUsage</a> extension installed.
      *
      * @param title The title of the file to query
      * @return An ArrayList containing shared duplicates of the file
@@ -1126,7 +1181,7 @@ public class Wiki {
      * Gets the list of usergroups (rights) a user belongs to. Sample groups: sysop, user, autoconfirmed, editor.
      *
      * @param user The user to get rights information for. Do not include "User:" prefix.
-     * @return The usergroups {@code user} belongs to.
+     * @return The usergroups {@code user} belongs to, or null if {@code user} is an IP or non-existent user.
      */
     public List<String> listUserRights(String user) {
         wikiConfiguration.getLog().info(this, "Getting user rights for " + user);
@@ -1186,6 +1241,31 @@ public class Wiki {
     }
 
     /**
+     * Performs a search on the Wiki.
+     *
+     * @param query The query string to search the Wiki with.
+     * @param limit The maximum number of entries to return. Optional, specify {@code -1} to disable (not recommended if
+     *              your wiki is big).
+     * @param ns    Limit search to these namespaces. Optional, leave blank to disable. The default behavior is to search
+     *              all namespaces.
+     * @return A List of titles found by the search.
+     */
+    public List<String> search(String query, int limit, NS... ns) {
+        WQuery wq = new WQuery(this, limit, WQuery.SEARCH).set("srsearch", query);
+
+        if (ns.length > 0) {
+            wq.set("srnamespace", namespaceManager.createFilter(ns));
+        }
+
+        List<String> resultList = new ArrayList<>();
+        while (wq.has()) {
+            resultList.addAll(FL.toArrayList(wq.next().listComp("search").stream().map(e -> GSONP.getString(e, VAR_TITLE))));
+        }
+
+        return resultList;
+    }
+
+    /**
      * Splits the text of a page by header.
      *
      * @param title The title to query
@@ -1196,7 +1276,7 @@ public class Wiki {
 
         try {
             return PageSection.pageBySection(GSONP.getJsonArrayofJsonObject(GSONP.getNestedJsonArray(
-                    GSONP.getJsonParser().parse(basicGET("parse", "prop", "sections", "page", title).body().string()).getAsJsonObject(),
+                    JsonParser.parseString(basicGET("parse", "prop", "sections", "page", title).body().string()).getAsJsonObject(),
                     FL.toStringArrayList("parse", "sections"))), getPageText(title));
         } catch (Exception e) {
             LOG.error("Exception during obtaining page sections", e);

@@ -1,12 +1,6 @@
 package benjaminkomen.jwiki.util;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import okhttp3.HttpUrl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,11 +32,6 @@ public class GSONP {
     private static JsonDeserializer<HttpUrl> httpurlDeserializer = (j, t, c) -> HttpUrl.parse(j.getAsJsonPrimitive().getAsString());
 
     /**
-     * Static JsonParser, for convenience.
-     */
-    private static final JsonParser JSON_PARSER = new JsonParser();
-
-    /**
      * Default Gson object, for convenience.
      */
     private static final Gson GSON = new GsonBuilder().registerTypeAdapter(Instant.class, instantDeserializer)
@@ -55,10 +44,6 @@ public class GSONP {
 
     private GSONP() {
         // no-args constructor
-    }
-
-    public static JsonParser getJsonParser() {
-        return JSON_PARSER;
     }
 
     public static Gson getGsonPrettyPrint() {

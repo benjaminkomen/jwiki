@@ -27,7 +27,7 @@ public class QueryTests {
     /**
      * The wiki object to use for this test set.
      */
-    private static Wiki wiki = new Wiki("test.wikipedia.org");
+    private static Wiki wiki = new Wiki.Builder().withDomain("test.wikipedia.org").build();
 
     /**
      * Tests for namespace handling
@@ -98,6 +98,9 @@ public class QueryTests {
 
         assertFalse(wiki.exists("User:Fastily/NoPageHere"));
         assertFalse(wiki.exists("user:fastily/noPageHere"));
+
+        // doesn't actually exist but should still return true
+        assertTrue(wiki.exists("User:Fastily/Sandbox#Test98769876"));
     }
 
     /**
@@ -223,6 +226,10 @@ public class QueryTests {
         // Test 2
         result = wiki.getContribs("FastilyClone", 1, true, NS.FILE);
         assertEquals("File:FCTest1.png", result.get(0).getTitle());
+
+        // Test 3 - non-existent user
+        result = wiki.getContribs("Fastilyy", 10, true);
+        assertTrue(result.isEmpty());
     }
 
     /**
@@ -233,7 +240,7 @@ public class QueryTests {
         List<String> result = wiki.getDuplicatesOf("File:FastilyTest.svg", true);
 
         assertEquals(1, result.size());
-        assertEquals("FastilyTestCopy.svg", result.get(0));
+        assertEquals("File:FastilyTestCopy.svg", result.get(0));
     }
 
     /**
@@ -359,6 +366,10 @@ public class QueryTests {
         List<String> l = wiki.listUserRights("Fastily");
         assertTrue(l.contains("sysop"));
         assertTrue(l.contains("autoconfirmed"));
+
+        // non-existent usernames and IPs should return null
+        assertNull(wiki.listUserRights("10.0.1.1"));
+        assertNull(wiki.listUserRights("Fastilyy"));
     }
 
     /**
