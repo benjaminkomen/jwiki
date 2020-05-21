@@ -4,6 +4,9 @@ language: java
 jdk:
   - openjdk13
 
+git:
+  depth: false
+
 notifications:
   email: false
 
@@ -15,7 +18,9 @@ cache:
   directories:
     - '$HOME/.m2/repository'
     - '$HOME/.sonar/cache'
+    - '$HOME/.gradle/'
+    - '.gradle'
 
 script:
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then sonar-scanner; fi' # sonar only on non-PRs
-
+  - ./gradlew jacocoTestReport
+  - ./gradlew sonarqube
