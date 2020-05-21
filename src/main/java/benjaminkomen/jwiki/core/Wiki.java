@@ -1,6 +1,12 @@
 package benjaminkomen.jwiki.core;
 
-import benjaminkomen.jwiki.dwrap.*;
+import benjaminkomen.jwiki.dwrap.Contrib;
+import benjaminkomen.jwiki.dwrap.ImageInfo;
+import benjaminkomen.jwiki.dwrap.LogEntry;
+import benjaminkomen.jwiki.dwrap.PageSection;
+import benjaminkomen.jwiki.dwrap.ProtectedTitleEntry;
+import benjaminkomen.jwiki.dwrap.RecentChangesEntry;
+import benjaminkomen.jwiki.dwrap.Revision;
 import benjaminkomen.jwiki.util.FL;
 import benjaminkomen.jwiki.util.GSONP;
 import benjaminkomen.jwiki.util.Tuple;
@@ -16,7 +22,15 @@ import org.slf4j.LoggerFactory;
 import java.net.Proxy;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 
 /**
@@ -29,6 +43,8 @@ import java.util.regex.Matcher;
 public class Wiki {
 
     private static final Logger LOG = LoggerFactory.getLogger(Wiki.class);
+    private static final String LOGIN = "login";
+    private static final String LGTOKEN = "lgtoken";
 
     /**
      * Our list of currently logged in Wiki's associated with this object. Useful for global operations.
@@ -38,7 +54,7 @@ public class Wiki {
     /**
      * Our namespace manager
      */
-    private NS.NSManager namespaceManager;
+    private final NS.NSManager namespaceManager;
 
     /**
      * Default configuration and settings for this Wiki.
@@ -269,11 +285,11 @@ public class Wiki {
      * @return the first token
      */
     private String getFirstToken(String username, String password) {
-        final Tuple<WAction.ActionResult, JsonObject> result = WAction.postAction(this, "login", false,
+        final Tuple<WAction.ActionResult, JsonObject> result = WAction.postAction(this, LOGIN, false,
                 FL.produceMap("lgname", username, "lgpassword", password));
 
         if (result.getValue1() == WAction.ActionResult.NOTOKEN) {
-            return GSONP.getString(result.getValue2().get("login").getAsJsonObject(), "token");
+            return GSONP.getString(result.getValue2().get(LOGIN).getAsJsonObject(), "token");
         } else {
             return null;
         }
@@ -287,11 +303,11 @@ public class Wiki {
      * @return the second token, aka lgtoken
      */
     private String getSecondToken(String username, String password, String firstToken) {
-        final Tuple<WAction.ActionResult, JsonObject> result = WAction.postAction(this, "login", false,
-                FL.produceMap("lgname", username, "lgpassword", password, "lgtoken", firstToken));
+        final Tuple<WAction.ActionResult, JsonObject> result = WAction.postAction(this, LOGIN, false,
+                FL.produceMap("lgname", username, "lgpassword", password, LGTOKEN, firstToken));
 
         if (result.getValue1() == WAction.ActionResult.SUCCESS) {
-            return GSONP.getString(result.getValue2().get("login").getAsJsonObject(), "lgtoken");
+            return GSONP.getString(result.getValue2().get(LOGIN).getAsJsonObject(), LGTOKEN);
         } else {
             return null;
         }
@@ -305,7 +321,7 @@ public class Wiki {
      */
     private String getEditToken(String secondToken) {
         final WQuery.QTemplate qTemplate = new WQuery.QTemplate(FL.produceMap("prop", "info",
-                "intoken", "edit", "titles", "Main Page", "lgtoken", secondToken), null);
+                "intoken", "edit", "titles", "Main Page", LGTOKEN, secondToken), null);
         final JsonObject pages = new WQuery(this, qTemplate).next().metaComp("pages").getAsJsonObject();
         return pages.entrySet().stream()
                 .map(p -> p.getValue().getAsJsonObject().get("edittoken").getAsString())
@@ -337,25 +353,8 @@ public class Wiki {
         wikiConfiguration.setBot(listUserRights(wikiConfiguration.getUname()).contains("bot"));
     }
 
-
     public void refreshLoginStatus() {
         refreshLoginStatus(null);
-    }
-
-    /**
-     * Fetch tokens
-     *
-     * @param wqt The {@code tokens} QTemplate to use
-     * @param tk  The key pointing to the String with the specified token.
-     * @return The token, or null on error.
-     */
-    private String getTokens(WQuery.QTemplate wqt, String tk) {
-        try {
-            return GSONP.getString(new WQuery(this, wqt).next().metaComp("tokens").getAsJsonObject(), tk);
-        } catch (Exception e) {
-            LOG.error("Exception during obtaining tokens", e);
-            return null;
-        }
     }
 
     /* //////////////////////////////////////////////////////////////////////////////// */
@@ -410,7 +409,9 @@ public class Wiki {
      * @return The same title if it is in {@code ns}, or the converted title.
      */
     public String convertIfNotInNS(String title, NS ns) {
-        return whichNS(title).equals(ns) ? title : String.format("%s:%s", namespaceManager.getValidNamespacesAndNumbers().get(ns.getValue()), nss(title));
+        return whichNS(title).equals(ns)
+                ? title
+                : String.format("%s:%s", namespaceManager.getValidNamespacesAndNumbers().get(ns.getValue()), nss(title));
     }
 
     /**

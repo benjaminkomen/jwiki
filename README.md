@@ -1,6 +1,7 @@
 # jwiki
 [![Build Status](https://www.travis-ci.com/benjaminkomen/jwiki.svg?branch=master)](https://www.travis-ci.com/benjaminkomen/jwiki)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=benjaminkomen%3Ajwiki&metric=alert_status)](https://sonarcloud.io/dashboard?id=benjaminkomen%3Ajwiki)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=benjaminkomen%3Ajwiki&metric=coverage)](https://sonarcloud.io/dashboard?id=benjaminkomen%3Ajwiki)
 [![License: GPL v3](https://upload.wikimedia.org/wikipedia/commons/8/86/GPL_v3_Blue_Badge.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
 This is a fork of [jwiki by fastily](https://github.com/fastily/jwiki). This fork attempts to be compatible with
