@@ -31,7 +31,7 @@ repositories {
 ext {
     junitVersion = "5.7.0"
     okhttpVersion = "4.9.0"
-    slf4jVersion = "1.8.0-beta2"
+    slf4jVersion = "2.0.0-alpha1"
     lombokVersion = "1.18.16"
 }
 
