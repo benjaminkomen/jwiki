@@ -29,7 +29,7 @@ repositories {
 }
 
 ext {
-    junitVersion = "5.7.0"
+    junitVersion = "5.7.1"
     okhttpVersion = "4.9.0"
     slf4jVersion = "1.8.0-beta2"
     lombokVersion = "1.18.16"
